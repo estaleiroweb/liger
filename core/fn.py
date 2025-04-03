@@ -1,14 +1,21 @@
 
-dsnConfig = 'dsn.json'
+def conf(file: str,
+         encoding: str = "utf-8",
+         merge: bool = False
+         ) -> dict:
+    from .conf import Conf
+    cfg = Conf(file, encoding, merge)
+    out = cfg()
+    return out if isinstance(out, dict) else {}
 
 
-def dsn(dsn: 'str|dict') -> dict:
+def dsn(conn: 'str|dict') -> dict:
     """
     Load every configs of database
 
     Args:
-        dsn (str|dict): _description_
-            - context of `dsn.json` (`dsnConfig`)
+        conn (str|dict): _description_
+            - context of `dsn.json`
             - `mariadb://usuario:senha@exemplo.com:8080/caminho/para/recurso?param1=valor1&param2=valor2&a=1&a=2#fragmento`
             - `dict` like the return below
     Returns:
@@ -27,64 +34,10 @@ def dsn(dsn: 'str|dict') -> dict:
             }
             ```
     """
-    def check(cfg: dict) -> dict:
-        arr = {
-            'type': 'scheme',
-            'db': 'database',
-            'username': 'user',
-            'passwd': 'password',
-            'pass': 'password',
-        }
-        cfg = {k.lower(): v for k, v in cfg.items()}
-        return trDict(cfg, arr)
-
-    def makeDSN(cfg: dict) -> str:
-        c = cfg.copy()
-        arr = ['scheme', 'username', 'port', 'hostname', 'path',]
-        for i in arr:
-            if i not in c:
-                c[i] = ''
-        strDsn = f'{c["scheme"]}://' if c['scheme'] else ''
-        strDsn += f'{c["username"]}@' if c['username'] else ''
-        port = f':{c["port"]}' if c['port'] else ''
-        strDsn += f'{c["hostname"]}{port}' if c['hostname'] else ''
-        strDsn += c['path'] if c['path'] else ''
-        return strDsn
-
-    if isinstance(dsn, str):
-        if '://' in dsn: # URI
-            from urllib.parse import urlparse, parse_qs
-            u = urlparse(dsn)
-            arr = [
-                'scheme', 'host', 'port',
-                'user', 'password',
-                'params', 'fragment',
-            ]
-            cfg = {}
-            for i in arr:
-                v = getattr(u, i)
-                if v:
-                    cfg[i] = v
-            if u.path and u.path != '/':
-                cfg['database'] = u.path.strip('/').replace('/', '.')
-            if u.query:
-                query = simplify_lists(parse_qs(u.query))
-                for i in query:
-                    if i not in cfg and query[i]:
-                        cfg[i] = query[i]
-            cfg['dsn'] = makeDSN(cfg)
-        else: # dsn Context
-            from ..core.conf import Conf
-            obj = Conf(dsnConfig)
-            cfg = obj()
-            cfg = cfg[dsn] if isinstance(cfg, dict) and dsn in cfg else {}
-            cfg['dsn'] = dsn
-            cfg = check(cfg)
-    else: # dict
-        cfg = check(dsn)
-        if 'dsn' not in cfg:
-            cfg['dsn'] = makeDSN(cfg)
-    return cfg
+    from ..db import dsn as d
+    o = d.Dsn()
+    c = o(conn)
+    return c if isinstance(c, dict) else {}
 
 
 def trDict(d: dict, tr: dict) -> dict:
@@ -279,3 +232,72 @@ def anonymize(content):
             return data
 
     return process(content)
+
+
+def copy(source_dir: str = None,
+         destination_dir: str = None,
+         pattern: str = '*',
+         overflow: bool = False):
+    """
+    Copies files and directories from a source to a destination.
+
+    Args:
+        source_dir: Source directory. Defaults to current directory.
+        destination_dir: Destination directory. Defaults to current directory.
+        pattern: Glob pattern to filter items to be copied. Defaults to '*'.
+        overflow: If True, overwrites existing files and directories in the destination.
+                 If False, skips items that already exist in the destination.
+    """
+    import os
+    import glob
+    import shutil
+
+    if not source_dir:
+        source_dir = '.'
+    if not destination_dir:
+        destination_dir = '.'
+
+    if not os.path.exists(destination_dir):
+        os.makedirs(destination_dir)
+
+    items = glob.glob(os.path.join(source_dir, pattern))
+
+    # Copy each item to the destination
+    for item in items:
+        item_name = os.path.basename(item)
+        dest_path = os.path.join(destination_dir, item_name)
+
+        if os.path.isdir(item):
+            # If it's a directory
+            if os.path.exists(dest_path):
+                if overflow:
+                    # Overwrite if overflow is True
+                    shutil.rmtree(dest_path)
+                    shutil.copytree(item, dest_path)
+                # If overflow is False, ignore the existing directory
+            else:
+                # Destination directory doesn't exist, so copy
+                shutil.copytree(item, dest_path)
+        else:
+            # If it's a file
+            if os.path.exists(dest_path):
+                if overflow:
+                    # Overwrite if overflow is True
+                    shutil.copy2(item, dest_path)
+                # If overflow is False, ignore the existing file
+            else:
+                # Destination file doesn't exist, so copy
+                shutil.copy2(item, dest_path)
+
+
+def loadJSON(file: str, encoding='utf-8'):
+    import json
+    with open(file, "r", encoding=encoding) as f:
+        return json.load(f)
+    return {}
+
+
+def saveJSON(file: str, data: 'dict|list', indent=4):
+    import json
+    with open(file, "w") as f:
+        json.dump(data, f, indent=indent)

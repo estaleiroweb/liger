@@ -1,10 +1,6 @@
 import os
-import json
 import sys
-import configparser
-import jsonpath_ng as j
 # from typing import Union
-from .fn import merge_recursive
 
 
 class Conf:
@@ -42,7 +38,7 @@ class Conf:
                 dOld, d = d, os.path.dirname(d)
                 Conf.__checkDir(d)
             Conf.__checkDir(sys.path[0])
-            Conf.path[Conf.subdir]=Conf.path[Conf.subdir][::-1]
+            Conf.path[Conf.subdir] = Conf.path[Conf.subdir][::-1]
         self.__subdir: str = self.subdir
         self.__dir: list = []
         self.__file: str = file
@@ -65,7 +61,8 @@ class Conf:
         """
         conf = Conf.cache[self.key]['conf']
         if jsonPath is not None:
-            jsonpath_expr = j.parse(jsonPath)
+            import jsonpath_ng
+            jsonpath_expr = jsonpath_ng.parse(jsonPath)
             out = [match.value for match in jsonpath_expr.find(conf)]
             return out[0] if len(out) == 1 else out
         return conf
@@ -91,6 +88,13 @@ class Conf:
         return self.__file
 
     @property
+    def fullfile(self) -> str:
+        """Configuration first full file name."""
+        if not self.__dir:
+            return ''
+        return os.path.join(self.__dir[0], self.__file)
+
+    @property
     def encoding(self) -> str:
         """Configuration file encoding."""
         return self.__encoding
@@ -112,9 +116,11 @@ class Conf:
             Conf.cache[key]['dir'].append(dir)
             conf = None
             if self.__file.endswith('.json'):
+                import json
                 with open(fullfile, "r", encoding=self.__encoding) as f:
                     conf = json.load(f)
             elif self.__file.endswith('.ini'):
+                import configparser
                 config = configparser.ConfigParser()
                 config.read(fullfile)
                 conf = {
@@ -123,6 +129,7 @@ class Conf:
             else:
                 continue
             if merge:
+                from .fn import merge_recursive
                 Conf.cache[key]['conf'] = merge_recursive(
                     Conf.cache[key]['conf'],
                     conf

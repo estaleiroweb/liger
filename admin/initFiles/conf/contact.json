@@ -1,0 +1,11 @@
+[
+	{
+		"name": "Full name",
+		"email": [
+			"email@example.com"
+		],
+		"phones": [
+			"+55 99 99999-9999"
+		]
+	}
+]

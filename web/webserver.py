@@ -107,7 +107,7 @@ class HttpHandler(SimpleHTTPRequestHandler):
         if not self.id:
             import uuid
             self.id = uuid.uuid4()
-        return id
+        return self.id
 
     def do_GET(self):
         """Responde às requisições GET e gerencia a sessão."""
