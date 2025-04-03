@@ -170,8 +170,8 @@ class Crypt:
             algorithm (BlockCipherAlgorithm|CipherAlgorithm, optional): Cipher algorithm to use. Default: AES
             mode (modes.Mode, optional): Cipher mode to use. Default: CBC
         """
-        self.__keyCoded: bytes = b''
-        self.__key: str = ''
+        self.__key: str = None
+        self.__keyCoded: bytes = None
         self.__algorithm: str = None
         self.__mode: str = None
 
@@ -179,7 +179,7 @@ class Crypt:
         self.econding = cfg.get('charset', 'utf-8')
         self.algorithm = algorithm
         self.mode = mode
-        self.key = key or str(cfg.get('secret', '')).strip()
+        self.key = key or cfg.get('secret')
 
     def __call__(self, content, decrypt=False):
         """
@@ -195,7 +195,7 @@ class Crypt:
         return self.decrypt(content) if decrypt else self.encrypt(content)
 
     @property
-    def keyCoded(self) -> bytes:
+    def keyCoded(self) -> 'bytes|None':
         """
         Get or set the encryption keyCode.
 
@@ -204,6 +204,8 @@ class Crypt:
         """
         if self.__keyCoded:
             return self.__keyCoded
+        if not self.__key:
+            return None
         lens = self.CIPHER_SPECS[self.__algorithm]['len']['key']
         key = self.__key.encode(self.__econding)
         l = len(key)
@@ -284,7 +286,7 @@ class Crypt:
 
     @mode.setter
     def mode(self, val: str = 'CBC'):
-        if not val or val not in self.CIPHER_SPECS:
+        if not val or val not in self.CIPHER_MODES:
             if self.__mode:
                 return
             val = 'CBC'
@@ -299,7 +301,8 @@ class Crypt:
             dict: Dictionary containing current key length, IV length, and allowed key lengths
         """
         l = self.CIPHER_SPECS[self.__algorithm]['len']
-        l['lenKey'] = len(self.__keyCoded)
+        k=self.keyCoded
+        l['lenKey'] = len(k) if k else 0
         return l
 
     @property
@@ -323,7 +326,7 @@ class Crypt:
         """
         return f'{self.__algorithm}.{self.__mode}'
 
-    def encrypt(self, plaintext: str):
+    def encrypt(self, plaintext: str) -> 'str|None':
         """
         Encrypt a string using the configured cipher algorithm and mode.
 
@@ -354,7 +357,7 @@ class Crypt:
         ciphertext = encryptor.update(plaintext_padded) + encryptor.finalize()
         return base64.b64encode(iv + ciphertext).decode(self.__econding)
 
-    def decrypt(self, encrypted_data):
+    def decrypt(self, encrypted_data: str) -> 'str|None':
         """
         Decrypt an encrypted string.
 

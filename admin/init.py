@@ -6,7 +6,6 @@ from ..core import fn
 from ..core import crypt
 from ..db.dsn import Dsn
 
-
 class Main:
     settings_file = 'settings.json'
     DEFAULTS = {
@@ -24,7 +23,7 @@ class Main:
         """
         print('Starts a project')
         # print(args)
-
+        
         self.args: argparse.Namespace = args
         self.vals: 'dict[str,str|None]' = {}
         self.old: 'dict[str,str|None]' = {}
@@ -122,8 +121,6 @@ class Main:
         file = self.__getFullFile(Dsn.config_file, self.vals['path'])
         changed = False
         dsn = fn.loadJSON(file)
-        print(dsn)
-        quit()
         c = crypt.Crypt(self.vals['secret'])
         cOld = crypt.Crypt(self.old['secret'])
         for i in dsn:
@@ -141,7 +138,6 @@ class Main:
                 changed = True
         if changed:
             fn.saveJSON(file, dsn)
-        print(dsn)
 
 
 if __name__ == "__main__":

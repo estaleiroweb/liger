@@ -1,4 +1,7 @@
 
+__SENSITIVE_PATTERNS: list = []
+
+
 def conf(file: str,
          encoding: str = "utf-8",
          merge: bool = False
@@ -40,6 +43,62 @@ def dsn(conn: 'str|dict') -> dict:
     return c if isinstance(c, dict) else {}
 
 
+def copy(source_dir: str = None,
+         destination_dir: str = None,
+         pattern: str = '*',
+         overflow: bool = False):
+    """
+    Copies files and directories from a source to a destination.
+
+    Args:
+        source_dir: Source directory. Defaults to current directory.
+        destination_dir: Destination directory. Defaults to current directory.
+        pattern: Glob pattern to filter items to be copied. Defaults to '*'.
+        overflow: If True, overwrites existing files and directories in the destination.
+                 If False, skips items that already exist in the destination.
+    """
+    import os
+    import glob
+    import shutil
+
+    if not source_dir:
+        source_dir = '.'
+    if not destination_dir:
+        destination_dir = '.'
+
+    if not os.path.exists(destination_dir):
+        os.makedirs(destination_dir)
+
+    items = glob.glob(os.path.join(source_dir, pattern))
+
+    # Copy each item to the destination
+    for item in items:
+        item_name = os.path.basename(item)
+        dest_path = os.path.join(destination_dir, item_name)
+
+        if os.path.isdir(item):
+            # If it's a directory
+            if os.path.exists(dest_path):
+                if overflow:
+                    # Overwrite if overflow is True
+                    shutil.rmtree(dest_path)
+                    shutil.copytree(item, dest_path)
+                # If overflow is False, ignore the existing directory
+            else:
+                # Destination directory doesn't exist, so copy
+                shutil.copytree(item, dest_path)
+        else:
+            # If it's a file
+            if os.path.exists(dest_path):
+                if overflow:
+                    # Overwrite if overflow is True
+                    shutil.copy2(item, dest_path)
+                # If overflow is False, ignore the existing file
+            else:
+                # Destination file doesn't exist, so copy
+                shutil.copy2(item, dest_path)
+
+
 def trDict(d: dict, tr: dict) -> dict:
     """Translate keys of a dictionary
 
@@ -67,13 +126,12 @@ def trDict(d: dict, tr: dict) -> dict:
         # {'password': 'xpto', 'user': 'admin'}
         ```
     """
+    out = {}
     for i in tr:
         if i in d and tr[i] not in d:
             d[tr[i]] = d[i]
-            del (tr[i])
+            del (d[i])
     return d
-
-    return {k: d[k] for k in arr if k in d}
 
 
 def simplify_lists(data):
@@ -161,38 +219,58 @@ def anonymize(content):
     Returns:
         Anonymized content maintaining the original structure
     """
+    global __SENSITIVE_PATTERNS
     import re
 
-    # Regex patterns for sensitive keys
-    sensitive_patterns = [
-        r'pass(w(or)?d)?|senha|pwd',
-        r'cpf|cnpj|ssn|tax|id',
-        r'rg|identity|document',
-        r'email|e-mail',
-        r'phone|tel(efone)?|tel|cel(ular)?|mobile',
-        r'(credit_?)?card|cart[aã]o_?cr[eé]dito|cc_|card_?number',
-        r'address|endereco|location',
-        r'token|api_?key|secret|jwt',
-        r'passport|passaporte',
-        r'account|conta',
-        r'birth|data_?(nasc|birth)',
-        r'security|seguran[cç]a',
-        r'credentials|credenciais',
-        r'certificate|certificado',
-        r'private|privado'
-    ]
+    defRepl = '********'
 
-    # Compile the regex patterns for better performance
-    compiled_patterns = [re.compile(pattern, re.IGNORECASE)
-                         for pattern in sensitive_patterns]
+    def defaultRepl(match):
+        if match[2]:
+            return match[1] + '**' + match[3]
+        if match[3]:
+            return '*****'+match[3]
+        return defRepl
+    if not __SENSITIVE_PATTERNS:
+        __SENSITIVE_PATTERNS = [
+            [None, r'^(.{0,3})(.*?)(.{0,3})$', defaultRepl],
+            [r'pass(w(or)?d)?|senha|pwd', r'.*'],
+            [r'cpf|cnpj|ssn|tax|id', r'^(\d{2}).(\d)*$', '\\1*****\\2'],
+            [r'rg|identity|document', r'.*'],
+            [r'email|e-mail', r'^(.{0,4})[^@]*@?.*?(.{0,4})$', '\\1**@**\\2'],
+            [r'phone|tel(efone)?|tel|cel(ular)?|mobile', r'.*'],
+            [r'(credit_?)?card|cart[aã]o_?cr[eé]dito|cc_|card_?number', r'.*'],
+            [r'address|endereco|location', r'.*'],
+            [r'token|api_?key|secret|jwt', r'.*'],
+            [r'passport|passaporte', r'.*'],
+            [r'account|conta', r'.*'],
+            [r'birth|data_?(nasc|birth)', r'.*'],
+            [r'security|seguran[cç]a', r'.*'],
+            [r'credentials|credenciais', r'.*'],
+            [r'certificate|certificado', r'.*'],
+            [r'private|privado', r'.*'],
+        ]
+        __SENSITIVE_PATTERNS = [
+            [
+                re.compile(v[0]) if v[0] else None,
+                re.compile(v[1]),
+                v[2] if len(v) > 2 else defRepl
+            ]
+            for v in __SENSITIVE_PATTERNS
+        ]
+
+        # Regex patterns for sensitive keys
 
     # Helper function to check if a key is sensitive
     def is_sensitive(key):
         key_str = str(key)
-        return any(pattern.search(key_str) for pattern in compiled_patterns)
+        for i in range(len(__SENSITIVE_PATTERNS)):
+            if __SENSITIVE_PATTERNS[i][0]:
+                regex = __SENSITIVE_PATTERNS[i][0]
+                if regex.search(key_str):
+                    return i
 
     # Function to process recursively
-    def process(data):
+    def process(data, force=False):
         # Primitive types return as is
         if isinstance(data, (str, int, float, bool, type(None))):
             return data
@@ -202,92 +280,39 @@ def anonymize(content):
             result = {}
             for key, value in data.items():
                 # If it's a sensitive key, anonymize the value
-                if is_sensitive(key):
-                    if isinstance(value, str):
-                        result[key] = "********"
-                    elif isinstance(value, (int, float)):
-                        result[key] = 0
-                    elif isinstance(value, bool):
-                        result[key] = False
+                idx = is_sensitive(key)
+                if idx or force:
+                    if isinstance(value, (int, float, bool)):
+                        result[key] = None
+                    elif isinstance(value, str):
+                        if not idx:
+                            idx = 0
+                        cfg = __SENSITIVE_PATTERNS[idx]
+                        result[key] = re.sub(cfg[1], cfg[2], value, count=1)
+                    elif isinstance(value, dict):
+                        result[key] = process(value, True)
                     else:
-                        # For complex types (lists, dictionaries, etc.)
-                        result[key] = process(value)
+                        result[key] = defRepl
                 else:
                     # Process recursively for non-sensitive values
-                    result[key] = process(value)
+                    result[key] = process(value, force)
             return result
-
-        # Lists and tuples
-        elif isinstance(data, (list, tuple)):
-            result = [process(item) for item in data]
-            # Keep the same type (list or tuple)
-            return type(data)(result)
-
-        # Sets
+        elif isinstance(data, list):
+            return [process(item) for item in data]
+        elif isinstance(data, tuple):
+            return tuple([process(item) for item in data])
         elif isinstance(data, set):
             return {process(item) for item in data}
+            out: set = set()
+            for item in data:
+                out.add(process(item))
+            return out
 
         # For other types, return as is
         else:
             return data
 
     return process(content)
-
-
-def copy(source_dir: str = None,
-         destination_dir: str = None,
-         pattern: str = '*',
-         overflow: bool = False):
-    """
-    Copies files and directories from a source to a destination.
-
-    Args:
-        source_dir: Source directory. Defaults to current directory.
-        destination_dir: Destination directory. Defaults to current directory.
-        pattern: Glob pattern to filter items to be copied. Defaults to '*'.
-        overflow: If True, overwrites existing files and directories in the destination.
-                 If False, skips items that already exist in the destination.
-    """
-    import os
-    import glob
-    import shutil
-
-    if not source_dir:
-        source_dir = '.'
-    if not destination_dir:
-        destination_dir = '.'
-
-    if not os.path.exists(destination_dir):
-        os.makedirs(destination_dir)
-
-    items = glob.glob(os.path.join(source_dir, pattern))
-
-    # Copy each item to the destination
-    for item in items:
-        item_name = os.path.basename(item)
-        dest_path = os.path.join(destination_dir, item_name)
-
-        if os.path.isdir(item):
-            # If it's a directory
-            if os.path.exists(dest_path):
-                if overflow:
-                    # Overwrite if overflow is True
-                    shutil.rmtree(dest_path)
-                    shutil.copytree(item, dest_path)
-                # If overflow is False, ignore the existing directory
-            else:
-                # Destination directory doesn't exist, so copy
-                shutil.copytree(item, dest_path)
-        else:
-            # If it's a file
-            if os.path.exists(dest_path):
-                if overflow:
-                    # Overwrite if overflow is True
-                    shutil.copy2(item, dest_path)
-                # If overflow is False, ignore the existing file
-            else:
-                # Destination file doesn't exist, so copy
-                shutil.copy2(item, dest_path)
 
 
 def loadJSON(file: str, encoding='utf-8'):
