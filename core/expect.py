@@ -1,39 +1,14 @@
 import re
 import time
 from abc import ABC, abstractmethod
-
-DEBUG_NONE: int = 0
-"""Debug nothing"""
-
-DEBUG_PRIMARY: int = 1
-"""Linked Expect._debug_primary method. Debug without LineFeed. Mainly used to shows output of terminal"""
-
-DEBUG_INFO: int = 2
-"""Linked Expect._debug_info method. Debug with LineFeed the informations steps of the job"""
-
-DEBUG_CMD: int = 4
-"""Linked Expect._debug_cmd method. Debug with LineFeed the send commands"""
-
-DEBUG_WARNING: int = 8
-"""Linked Expect._debug_warning method. Debug with LineFeed thwhen warning happens"""
-
-DEBUG_ERROR: int = 16
-"""Linked Expect._error method. Debug with LineFeed the fatal error"""
-
-DEBUG_ALL: int = \
-    DEBUG_PRIMARY + \
-    DEBUG_INFO + \
-    DEBUG_CMD + \
-    DEBUG_WARNING + \
-    DEBUG_ERROR
-"""Debug everything. This is the union of before debugs"""
+from . import log
 
 ret_dict: bool = False
 """When True, expect() returns dictionary instead of list for sequence inputs."""
 
 
 class Main(ABC):
-    verbose: int = DEBUG_NONE
+    verbose: int = log.LOG_NONE
     """
     Controls verbosity level for logging and debugging.
 
@@ -146,6 +121,8 @@ class Main(ABC):
         self.sleep: float = 0
         """Time to sleep after send a command"""
 
+        self.__log = log.Logger('Expect')
+
     def __del__(self):
         """
         Destructor that ensures connections are properly closed.
@@ -217,7 +194,7 @@ class Main(ABC):
     @timeout.setter
     def timeout(self, value: int):
         if value < 0:
-            self._debug_warning(f'Timeout must be greater than 0 ({value})')
+            self.__log.warning(f'Timeout must be greater than 0 ({value})')
         else:
             self._set_timeout(value)
             self.__timeout = value
@@ -249,7 +226,7 @@ class Main(ABC):
             self.__prompt = self._prompts[value]
         else:
             self.__prompt = value
-        self._debug_info(f'Prompt: {self.__prompt}')
+        self.__log.info(f'Prompt: {self.__prompt}')
 
     @prompt.deleter
     def prompt(self):
@@ -307,12 +284,12 @@ class Main(ABC):
             return self._error(5, 'The `exec` key is not callable')
 
         self.__more.append(value)
-        self._debug_info(f'Append more: {value}')
+        self.__log.info(f'Append more: {value}')
 
     @more.deleter
     def more(self):
         self.__more = []
-        self._debug_info('Clear more')
+        self.__log.info('Clear more')
 
     @property
     def backSpc(self) -> str:
@@ -364,51 +341,11 @@ class Main(ABC):
             bool: True if successful, False otherwise.
         """
         if command and type(command) == str and self.isConnected():
-            self._debug_cmd(command)
+            self.__log.debug(command)
             self.__lastCmd = command
             self._send((command + self.lf).encode(self.charset))
             return True
         return False
-
-    def _debug_primary(self, text):
-        """
-        Output debug information based on verbosity settings.
-
-        Args:
-            text (str): The text to output
-        """
-        if self.verbose & DEBUG_PRIMARY:
-            print(f'{text}', end='')
-
-    def _debug_info(self, text):
-        """
-        Output debug information based on verbosity settings.
-
-        Args:
-            text (str): The text to output
-        """
-        if self.verbose & DEBUG_INFO:
-            print(f'# {text}')
-
-    def _debug_cmd(self, text):
-        """
-        Output debug information based on verbosity settings.
-
-        Args:
-            text (str): The text to output
-        """
-        if self.verbose & DEBUG_CMD:
-            print(f'>>>>>>>>>>>>>>> {text}')
-
-    def _debug_warning(self, text):
-        """
-        Output debug information based on verbosity settings.
-
-        Args:
-            text (str): The text to output
-        """
-        if self.verbose & DEBUG_WARNING:
-            print(f'### WARNING: {text}')
 
     def _error(self, idError: int = 0, content=None) -> bool:
         """
@@ -421,12 +358,15 @@ class Main(ABC):
             bool: Always returns False
         """
         self.exit = idError
-        if self.verbose & DEBUG_ERROR:
+        if not idError:
+            return True
+        if not content:
             if idError in self._idErrors:
-                print(f'### ERROR[{idError}]:', self._idErrors[idError])
-            if content:
-                print(f'{content}')
-        return False if idError else True
+                content = f'Error[{idError}]: {self._idErrors[idError]}'
+            else:
+                content = f'Error[{idError}]: Unknown error'
+        self.__log.error(content)
+        return False
 
     def _action(self, action: dict) -> bool:
         """
@@ -520,10 +460,10 @@ class Main(ABC):
             try:
                 recv = self._recv().decode(self.charset)
                 if not recv:
-                    self._debug_warning("Connection closed")
+                    self.__log.warning("Connection closed")
                     self.exit = 0
                     break
-                self._debug_primary(recv)
+                self.__log.primary(recv)
                 self.buffer += recv
             except:
                 # self._error(2)
@@ -606,7 +546,7 @@ class Main(ABC):
                     sys.stdout.write(recv)
                     sys.stdout.flush()
             except EOFError:
-                self._debug_warning("Connection closed")
+                self.__log.warning("Connection closed")
                 self.exit = 1
                 return True
             except socket.timeout:
@@ -729,8 +669,7 @@ class SSH(Main):
         """Session of SSH connection"""
 
         try:
-            self._debug_info(
-                f'SSH Connecting: {username}@{hostname}:{port}')
+            self.__log.info(f'SSH Connecting: {username}@{hostname}:{port}')
             self._conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._conn.connect(hostname=hostname,
                                port=port,
@@ -738,7 +677,7 @@ class SSH(Main):
                                password=password,
                                timeout=timeout,
                                **paramiko_conf)
-            self._debug_info('SSH Connected')
+            self.__log.info('SSH Connected')
             # print(self._conn)
             self._session = self._conn.invoke_shell()
             self._session.settimeout(self.timeout)
@@ -815,12 +754,12 @@ class Telnet(Main):
         """Conection Telnet of collect"""
 
         try:
-            self._debug_info(
+            self.__log.info(
                 f'Telnet Connecting: {username}@{hostname}:{port}')
             self._conn = telnetlib.Telnet(hostname,
                                           port,
                                           timeout)
-            self._debug_info('Telnet Connected')
+            self.__log.info('Telnet Connected')
             self.__login(username, password)
             # Initial read to get welcome message
         except Exception as e:
@@ -881,13 +820,13 @@ class Telnet(Main):
                 index, _, recv = self._conn.expect(patterns, self.timeout)
                 if recv:
                     recv = recv.decode(self.charset)
-                    self._debug_primary(recv)
+                    self.__log.primary(recv)
                     self.buffer += recv
 
                 if index == 0:  # Prompt match
                     self._stripPrompt()
                 elif index < 0:  # Timeout
-                    self._debug_warning("Connection timeout")  # TODO Check it
+                    self.__log.warning("Connection timeout")  # TODO Check it
                     self.exit = 1  # TODO Check it
                 elif not self._action(more[index-1]):  # Prompt more
                     if self.sleep:
@@ -895,7 +834,7 @@ class Telnet(Main):
                     continue
                 break
             except EOFError:
-                self._debug_warning("Connection closed by remote host")
+                self.__log.warning("Connection closed by remote host")
                 self.exit = 1
                 break
             except Exception as e:
@@ -941,13 +880,13 @@ class Socket(Main):
         self._conn: socket.socket = None
 
         try:
-            self._debug_info(f'Connecting to socket {hostname}:{port}')
+            self.__log.info(f'Connecting to socket {hostname}:{port}')
             self._conn = socket.socket(
                 socket.AF_INET, socket.SOCK_STREAM
             )
             self._conn.settimeout(timeout)
             self._conn.connect((hostname, port))
-            self._debug_info('Connected')
+            self.__log.info('Connected')
         except Exception as e:
             self._conn = None
             self._error(4, e)
@@ -1017,7 +956,7 @@ class Serial(Main):
         self._conn: serial.Serial = None
 
         try:
-            self._debug_info(f'Opening serial port {port} at {baudrate} baud')
+            self.__log.info(f'Opening serial port {port} at {baudrate} baud')
             self._conn = serial.Serial(
                 port=port,
                 baudrate=baudrate,
@@ -1026,7 +965,7 @@ class Serial(Main):
                 stopbits=stopbits,
                 timeout=timeout
             )
-            self._debug_info('Serial port opened')
+            self.__log.info('Serial port opened')
         except Exception as e:
             self._conn = None
             self._error(4, e)
@@ -1141,7 +1080,7 @@ class Spawn(Main):
         self._conn: io.FileIO = None
         self._process: subprocess.Popen = None
         try:
-            self._debug_info(f'Spawning process: {command}')
+            self.__log.info(f'Spawning process: {command}')
 
             # Create a pseudo-terminal for interactive processes
             master, slave = pty.openpty()
@@ -1169,7 +1108,7 @@ class Spawn(Main):
             self._session = master
             os.close(slave)
 
-            self._debug_info('Process spawned')
+            self.__log.info('Process spawned')
         except Exception as e:
             self._conn = None
             self._error(4, e)

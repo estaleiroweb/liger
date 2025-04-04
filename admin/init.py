@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 import os
 import json
 import argparse
 import readchar
 from ..core import fn
-from ..core import crypt
-from ..db.dsn import Dsn
+# from ..core import crypt
+# from ..db.dsn import Dsn
 
 class Main:
     settings_file = 'settings.json'
@@ -25,6 +26,7 @@ class Main:
         # print(args)
         
         self.args: argparse.Namespace = args
+        
         self.vals: 'dict[str,str|None]' = {}
         self.old: 'dict[str,str|None]' = {}
         self.__getValues()
@@ -51,7 +53,7 @@ class Main:
         v = str(self.vals[key])
         self.DEFAULTS['name']['default'] = os.path.basename(v)
 
-        file = self.__getFullFile(self.settings_file, v)
+        file = fn.get_conf_fullfilename(self.settings_file, v)
         if not file:
             return
         self.old = fn.loadJSON(file)
@@ -69,17 +71,6 @@ class Main:
         if not self.vals['secret']:
             import secrets
             self.vals['secret'] = secrets.token_hex(32)
-
-    def __getFullFile(self, file: str, path: str = None) -> 'str|bool':
-        if not path or path == '':
-            path = '.'
-        elif not os.path.isdir(path):
-            return False
-
-        fullFile = os.path.join(path, 'conf', file)
-        if not os.path.isfile(fullFile):
-            return False
-        return fullFile
 
     def __showValues(self):
         print()
@@ -105,7 +96,7 @@ class Main:
         if not self.vals['path']:
             self.vals['path'] = '.'
 
-        file = self.__getFullFile(self.settings_file, self.vals['path'])
+        file = fn.get_conf_fullfilename(self.settings_file, self.vals['path'])
         if not os.path.isfile(file):
             print(f'File {file} not found')
             quit()
@@ -116,28 +107,30 @@ class Main:
         fn.saveJSON(file, settings)
 
     def __editDSN(self):
-        if not self.old['secret']:
-            self.old['secret'] = self.vals['secret']
-        file = self.__getFullFile(Dsn.config_file, self.vals['path'])
-        changed = False
-        dsn = fn.loadJSON(file)
-        c = crypt.Crypt(self.vals['secret'])
-        cOld = crypt.Crypt(self.old['secret'])
-        for i in dsn:
-            v = Dsn.check(dsn[i])
-            if 'crypt' in v:
-                if self.vals['secret'] == self.old['secret']:
-                    continue
-                v['crypt']=c(cOld(v['crypt'],True))
-                dsn[i]=v
-                changed = True
-            elif 'password' in v:
-                v['crypt']=c(v['password'])
-                del(v['password'])
-                dsn[i]=v
-                changed = True
-        if changed:
-            fn.saveJSON(file, dsn)
+        fn.rebuildDsn(self.old['secret'], self.vals['path'])
+        # if not self.old['secret']:
+        #     self.old['secret'] = self.vals['secret']
+        
+        # file = fn.get_conf_fullfilename(Dsn.config_file, self.vals['path'])
+        # changed = False
+        # dsn = fn.loadJSON(file)
+        # c = crypt.Crypt(self.vals['secret'])
+        # cOld = crypt.Crypt(self.old['secret'])
+        # for i in dsn:
+        #     v = Dsn.check(dsn[i])
+        #     if 'crypt' in v:
+        #         if self.vals['secret'] == self.old['secret']:
+        #             continue
+        #         v['crypt']=c(cOld(v['crypt'],True))
+        #         dsn[i]=v
+        #         changed = True
+        #     elif 'password' in v:
+        #         v['crypt']=c(v['password'])
+        #         del(v['password'])
+        #         dsn[i]=v
+        #         changed = True
+        # if changed:
+        #     fn.saveJSON(file, dsn)
 
 
 if __name__ == "__main__":

@@ -46,5 +46,15 @@
 		  "%H:%M": "14:30"
 		}
 	  }
+	},
+	"log": {
+		"path": "project/logs",
+		"file": "system.log",
+		"createPath": false,
+		"maxSize": 1048576,
+		"level": {
+			"verbose": 16,
+			"file": 0
+		}
 	}
   }

@@ -1,4 +1,6 @@
 import pytest
+import os
+import sys
 from ...core import fn
 
 
@@ -346,3 +348,25 @@ class Test_loadJSON:
 
 class Test_saveJSON:
     ...
+
+
+class Test_get_conf_fullfilename:
+    def setup_method(self):
+        self.path = os.path.realpath(
+            os.path.join(
+                os.path.dirname(fn.__file__),
+                '..',
+                'admin',
+                'initFiles',
+            )
+        )
+        if not os.path.isdir(self.path):
+            self.path = '.'
+
+    @pytest.mark.parametrize("file", ["settings.json", "dsn.json", "web.json", "email.json", "contact.json", "menu.json"])
+    def test_path(self, file):
+        data = fn.get_conf_fullfilename(file, self.path)
+        if not data:
+            assert '' == file
+            data=''
+        assert True

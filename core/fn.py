@@ -6,10 +6,25 @@ def conf(file: str,
          encoding: str = "utf-8",
          merge: bool = False
          ) -> dict:
+    """Short access to Conf class"""
     from .conf import Conf
     cfg = Conf(file, encoding, merge)
     out = cfg()
     return out if isinstance(out, dict) else {}
+
+
+def get_conf_fullfilename(file: str, path: str = None) -> 'str|bool':
+    import os
+    if not path:
+        import sys
+        return get_conf_fullfilename(file, sys.path[0]) or get_conf_fullfilename(file, os.path.realpath('.'))
+    elif not os.path.isdir(path):
+        return False
+
+    fullFile = os.path.join(path, 'conf', file)
+    if not os.path.isfile(fullFile):
+        return False
+    return fullFile
 
 
 def dsn(conn: 'str|dict') -> dict:
@@ -71,31 +86,22 @@ def copy(source_dir: str = None,
 
     items = glob.glob(os.path.join(source_dir, pattern))
 
-    # Copy each item to the destination
     for item in items:
         item_name = os.path.basename(item)
         dest_path = os.path.join(destination_dir, item_name)
 
         if os.path.isdir(item):
-            # If it's a directory
             if os.path.exists(dest_path):
                 if overflow:
-                    # Overwrite if overflow is True
                     shutil.rmtree(dest_path)
                     shutil.copytree(item, dest_path)
-                # If overflow is False, ignore the existing directory
             else:
-                # Destination directory doesn't exist, so copy
                 shutil.copytree(item, dest_path)
         else:
-            # If it's a file
             if os.path.exists(dest_path):
                 if overflow:
-                    # Overwrite if overflow is True
                     shutil.copy2(item, dest_path)
-                # If overflow is False, ignore the existing file
             else:
-                # Destination file doesn't exist, so copy
                 shutil.copy2(item, dest_path)
 
 
@@ -153,26 +159,19 @@ def simplify_lists(data):
 
     result = {}
     for key, value in data.items():
-        # Se o valor for um dicionário, processa recursivamente
         if isinstance(value, dict):
             result[key] = simplify_lists(value)
-        # Se o valor for uma lista
         elif isinstance(value, list):
-            # Lista com um elemento - substitui pelo elemento
             if len(value) == 1:
-                # Se o elemento for um dicionário, processa recursivamente
                 if isinstance(value[0], dict):
                     result[key] = simplify_lists(value[0])
                 else:
                     result[key] = value[0]
-            # Lista vazia - substitui por None
             elif len(value) == 0:
                 result[key] = None
-            # Lista com múltiplos elementos - processa cada elemento recursivamente
             else:
                 result[key] = [simplify_lists(item) if isinstance(item, dict) else item
                                for item in value]
-        # Outros tipos de valor mantém como estão
         else:
             result[key] = value
 
@@ -260,7 +259,6 @@ def anonymize(content):
 
         # Regex patterns for sensitive keys
 
-    # Helper function to check if a key is sensitive
     def is_sensitive(key):
         key_str = str(key)
         for i in range(len(__SENSITIVE_PATTERNS)):
@@ -269,17 +267,13 @@ def anonymize(content):
                 if regex.search(key_str):
                     return i
 
-    # Function to process recursively
     def process(data, force=False):
-        # Primitive types return as is
         if isinstance(data, (str, int, float, bool, type(None))):
             return data
 
-        # Dictionaries
         elif isinstance(data, dict):
             result = {}
             for key, value in data.items():
-                # If it's a sensitive key, anonymize the value
                 idx = is_sensitive(key)
                 if idx or force:
                     if isinstance(value, (int, float, bool)):
@@ -294,7 +288,6 @@ def anonymize(content):
                     else:
                         result[key] = defRepl
                 else:
-                    # Process recursively for non-sensitive values
                     result[key] = process(value, force)
             return result
         elif isinstance(data, list):
@@ -307,8 +300,6 @@ def anonymize(content):
             for item in data:
                 out.add(process(item))
             return out
-
-        # For other types, return as is
         else:
             return data
 
@@ -316,6 +307,7 @@ def anonymize(content):
 
 
 def loadJSON(file: str, encoding='utf-8'):
+    """Load a json file from root_project/conf"""
     import json
     with open(file, "r", encoding=encoding) as f:
         return json.load(f)
@@ -323,6 +315,57 @@ def loadJSON(file: str, encoding='utf-8'):
 
 
 def saveJSON(file: str, data: 'dict|list', indent=4):
+    """Save a json file to root_project/conf"""
     import json
     with open(file, "w") as f:
         json.dump(data, f, indent=indent)
+
+
+def rebootApp():
+    """Reboot the app"""
+    import os
+    import sys
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
+
+    # import subprocess
+    # subprocess.run(["python3", "script_a_ser_executado.py"])
+
+
+def rebuildDsn(secretOld=None, path: str = None):
+    """Rebuild the DSN"""
+    from ..db.dsn import Dsn
+    from . import crypt
+
+    file = get_conf_fullfilename('settings.json', path)
+    if not file:
+        return
+
+    cfg = loadJSON(file)
+    secret = cfg.get('secret')
+    if not secret:
+        return
+
+    if not secretOld:
+        secretOld = secret
+
+    file = get_conf_fullfilename(Dsn.config_file, path)
+    changed = False
+    dsn = loadJSON(file)
+    c = crypt.Crypt(secret)
+    cOld = crypt.Crypt(secretOld)
+    for i in dsn:
+        v = Dsn.check(dsn[i])
+        if 'crypt' in v:
+            if secret == secretOld:
+                continue
+            v['crypt'] = c(cOld(v['crypt'], True))
+            dsn[i] = v
+            changed = True
+        elif 'password' in v:
+            v['crypt'] = c(v['password'])
+            del (v['password'])
+            dsn[i] = v
+            changed = True
+    if changed:
+        saveJSON(file, dsn)

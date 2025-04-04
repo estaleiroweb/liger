@@ -1,12 +1,6 @@
 import pytest
-import base64
-import os
-from unittest.mock import patch, MagicMock
-from cryptography.hazmat.primitives.ciphers import algorithms, modes
-from cryptography.hazmat.backends import default_backend
+from unittest.mock import patch
 from ...core import crypt
-# Assumindo que o código é de um módulo chamado ligre
-# Ajuste o import conforme necessário
 
 config = {'charset': 'utf-8', 'secret': 'default-test-key',
           'algorithm': "AES", 'mode': "CBC"}

@@ -56,7 +56,17 @@ The `settings.json` file contains various configuration parameters used by the a
         "%H:%M": "14:30"
       }
     }
-  }
+  },
+	"log": {
+		"path": "project/logs",
+		"file": "system.log",
+		"createPath": false,
+		"maxSize": 1048576,
+		"level": {
+			"verbose": 16,
+			"file": 0
+		}
+	}
 }
 ```
 
@@ -87,7 +97,14 @@ The `settings.json` file contains various configuration parameters used by the a
     - `input`:
       - `date`: Various date format strings and example values.
       - `time`: Various time format strings and example values.
-
+  - `log`: Log config
+    - `path`: Folder of logs
+    - `file`: File name of the system log
+    - `createPath`: If True and if there are not, it will create path automatily
+    - `maxSize`: max size file log
+    - `level`: Levels see LOG constants
+      - `verbose`: Log screen
+      - `file`: Log File
 ## Usage
 
 This configuration file should be used to customize the application's behavior according to the specific deployment environment and localization requirements.
