@@ -3,7 +3,11 @@ import os
 import sys
 from ...core import fn
 
+pytestmark = pytest.mark.core
+# pytestmark = [pytest.mark.core, pytest.mark.slow]
 
+
+# @pytest.mark.core
 class Test_merge_recursive:
     def test_dicts(self):
         """

@@ -7,16 +7,27 @@ from ..core import fn, log
 
 class MonitorHandler(FileSystemEventHandler):
     maxTime: int = 2
+    __paths: 'list[str]' = []
 
     def __init__(self):
         super().__init__()
         cfg = fn.conf('settings.json')
         self.__secretOld = cfg.get('secret', None)
-        self.doReboot:bool = False
+        self.doReboot: bool = False
         self.last_modified: int = 0
         self.cont: int = 0
         self.__log = log.Logger(self.__class__.__name__)
 
+    @classmethod
+    def addPath(cls, path: 'str|list[str]'):
+        """Add a path or list of paths to the monitored paths."""
+        if isinstance(path, str):
+            cls.__paths.append(path)
+        elif isinstance(path, list):
+            cls.__paths.extend(path)
+        else:
+            raise TypeError("Path must be a string or a list of strings.")
+        
     def dispatch(self, event):
         """Intercepta o evento antes de repassá-lo para os métodos específicos."""
         self.cont += 1

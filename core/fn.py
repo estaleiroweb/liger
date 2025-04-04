@@ -4,12 +4,13 @@ __SENSITIVE_PATTERNS: list = []
 
 def conf(file: str,
          encoding: str = "utf-8",
-         merge: bool = False
+         merge: bool = False,
+         nocache: bool = False
          ) -> dict:
     """Short access to Conf class"""
     from .conf import Conf
     cfg = Conf(file, encoding, merge)
-    out = cfg()
+    out = cfg.load() if nocache else cfg()
     return out if isinstance(out, dict) else {}
 
 

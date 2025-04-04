@@ -2,12 +2,16 @@ import pytest
 from unittest.mock import patch
 from ...core import crypt
 
+pytestmark = pytest.mark.core
+# pytestmark = [pytest.mark.core, pytest.mark.slow]
+
 config = {'charset': 'utf-8', 'secret': 'default-test-key',
           'algorithm': "AES", 'mode': "CBC"}
 config['key']=config['secret']
 param_default = {'key': "test-key-12345", 'algorithm': "AES", 'mode': "CBC"}
 
 
+# @pytest.mark.core
 class TestCrypt:
     def setup_method(self):
         # Mock da função conf para evitar dependência de arquivo settings.json

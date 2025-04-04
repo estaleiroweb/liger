@@ -38,10 +38,5 @@ class Main:
 
 
 if __name__ == "__main__":
-    # This module should be imported by the main script, so this block is not needed.
-    # But it's good practice to keep it for testing purposes.
-    from . import options
-
-    parser = argparse.ArgumentParser(description=options.web.__doc__)
-    options.web(parser)
-    Main(parser.parse_args())
+    print('This lib must be called by root of your project started by this framework by another script')
+    quit()
