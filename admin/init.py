@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
-import json
-import argparse
 import readchar
 from ..core import fn
+from . import main
 # from ..core import crypt
 # from ..db.dsn import Dsn
 
-class Main:
+
+class Main(main.Main):
     settings_file = 'settings.json'
     DEFAULTS = {
         'path': {'default': os.path.realpath('.'), 'descr': 'Project path', 'onafter': '_onafter_path'},
@@ -15,51 +15,43 @@ class Main:
         'secret': {'default': None, 'descr': 'Secret key [auto generate]', 'onafter': '_onafter_secret'},
     }
 
-    def __init__(self, args: argparse.Namespace = None):
+    def start(self):
         """
         Initializes a new project based on the provided arguments.
-
-        Args:
-            args: Parsed command-line arguments from argparse.
         """
         print('Starts a project')
-        # print(args)
-        
-        self.args: argparse.Namespace = args
-        
-        self.vals: 'dict[str,str|None]' = {}
-        self.old: 'dict[str,str|None]' = {}
-        self.__getValues()
+
+        # print(self.args)
+        self.old: dict[str, str | None] = {}
+        self.__get_values()
         self.__confirm()
-        self.__copyFiles()
-        self.__editSettings()
-        self.__editDSN()
+        self.__copy_files()
+        self.__edit_settings()
+        self.__edit_dsn()
         print('End build')
 
-    def __getValues(self):
-        self.vals = dict(self.args._get_kwargs())
-
+    def __get_values(self):
         for i in self.DEFAULTS:
-            if not self.vals[i]:
+            if not self.args[i]:
                 d = f' [{self.DEFAULTS[i]["default"]}]' if not None else ''
-                self.vals[i] = '' if self.args.quite else input(
+                self.args[i] = '' if self.args.get('quite') else input(
                     f"{self.DEFAULTS[i]["descr"]}{d}: ").strip()
-                if self.vals[i] == '':
-                    self.vals[i] = self.DEFAULTS[i]["default"]
+                if self.args[i] == '':
+                    self.args[i] = self.DEFAULTS[i]["default"]
             if 'onafter' in self.DEFAULTS[i]:
                 getattr(self, self.DEFAULTS[i]['onafter'])(i)
 
     def _onafter_path(self, key: str):
-        v = str(self.vals[key])
+        v = str(self.args[key])
         self.DEFAULTS['name']['default'] = os.path.basename(v)
 
         file = fn.get_conf_fullfilename(self.settings_file, v)
         if not file:
             return
-        self.old = fn.loadJSON(file)
+        self.old = fn.load_json(file)
         for i in ['name', 'secret']:
             self.old[i] = self.old.get(i, None)
-        if self.vals['force']:
+        if self.args['force']:
             return
         if not self.old:
             return
@@ -68,17 +60,17 @@ class Main:
         self.DEFAULTS['secret']['descr'] = 'Secret key'
 
     def _onafter_secret(self, key: str):
-        if not self.vals['secret']:
+        if not self.args['secret']:
             import secrets
-            self.vals['secret'] = secrets.token_hex(32)
+            self.args['secret'] = secrets.token_hex(32)
 
-    def __showValues(self):
+    def __show_values(self):
         print()
         for i in self.DEFAULTS:
-            print(f'{i}: {self.vals[i]}')
+            print(f'{i}: {self.args[i]}')
 
     def __confirm(self):
-        self.__showValues()
+        self.__show_values()
         print()
         print('Confirm [Y|n]: ')
         confirm = readchar.readchar().strip().lower()
@@ -86,56 +78,34 @@ class Main:
             print('Aborted')
             quit()
 
-    def __copyFiles(self):
+    def __copy_files(self):
         fn.copy(
             os.path.join(os.path.dirname(__file__), 'initFiles'),
-            self.vals['path'],
-            overflow=self.vals['force'])
+            self.args['path'],
+            overflow=self.args['force'])
 
-    def __editSettings(self):
-        if not self.vals['path']:
-            self.vals['path'] = '.'
+    def __edit_settings(self):
+        if not self.args['path']:
+            self.args['path'] = '.'
 
-        file = fn.get_conf_fullfilename(self.settings_file, self.vals['path'])
+        file = fn.get_conf_fullfilename(self.settings_file, self.args['path'])
         if not os.path.isfile(file):
             print(f'File {file} not found')
             quit()
 
-        settings = fn.loadJSON(file)
-        settings['name'] = self.vals['name']
-        settings['secret'] = self.vals['secret']
-        fn.saveJSON(file, settings)
+        settings = fn.load_json(file)
+        settings['name'] = self.args['name']
+        settings['secret'] = self.args['secret']
+        fn.save_json(file, settings)
 
-    def __editDSN(self):
-        fn.rebuildDsn(self.old['secret'], self.vals['path'])
-        # if not self.old['secret']:
-        #     self.old['secret'] = self.vals['secret']
-        
-        # file = fn.get_conf_fullfilename(Dsn.config_file, self.vals['path'])
-        # changed = False
-        # dsn = fn.loadJSON(file)
-        # c = crypt.Crypt(self.vals['secret'])
-        # cOld = crypt.Crypt(self.old['secret'])
-        # for i in dsn:
-        #     v = Dsn.check(dsn[i])
-        #     if 'crypt' in v:
-        #         if self.vals['secret'] == self.old['secret']:
-        #             continue
-        #         v['crypt']=c(cOld(v['crypt'],True))
-        #         dsn[i]=v
-        #         changed = True
-        #     elif 'password' in v:
-        #         v['crypt']=c(v['password'])
-        #         del(v['password'])
-        #         dsn[i]=v
-        #         changed = True
-        # if changed:
-        #     fn.saveJSON(file, dsn)
+    def __edit_dsn(self):
+        fn.rebuild_dsn(self.old['secret'], self.args['path'])
 
 
 if __name__ == "__main__":
     # This module should be imported by the main script, so this block is not needed.
     # But it's good practice to keep it for testing purposes.
+    import argparse
     from . import options
 
     parser = argparse.ArgumentParser(description=options.init.__doc__)

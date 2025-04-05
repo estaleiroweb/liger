@@ -29,7 +29,7 @@ class MySQL(Main):
         'ssl_key': None,
     }
 
-    def _checkConfig(self, cfg: dict) -> dict:
+    def _check_config(self, cfg: dict) -> dict:
         if 'host' not in cfg:
             self.fatal_error('Host connection config required')
 
@@ -115,7 +115,7 @@ class MySQL(Main):
             isok = [self.queryExec(i, param) for i in sql]
         return isok
 
-    def execMany(self, tbl: str, data: 'list[dict]', config: dict = {}):
+    def many(self, tbl: str, data: 'list[dict]', config: dict = {}):
         if not data or not self.conn:
             return
         self.show({'tbl': tbl, 'data': data, 'config': config})

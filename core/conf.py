@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from . import log
 # from typing import Union
 
@@ -14,7 +15,7 @@ class Conf:
 
     subdir = 'conf'
     """Subfolder that has configurations"""
-    path: dict[str, list[str]] = {}
+    path: dict[str, list[Path]] = {}
     """Collection of list of directories where configuration files are searched."""
 
     cache: dict = {}
@@ -31,9 +32,9 @@ class Conf:
             file: Configuration file name to load.
             encoding: Configuration file encoding.
         """
-        self.__buildPath()
+        self.__build_path()
         self.__subdir: str = self.subdir
-        self.__dir: list = []
+        self.__dir: list[Path] = []
         self.__file: str = file
         self.__encoding: str = encoding
         self.__merge: bool = False
@@ -75,11 +76,11 @@ class Conf:
         return self.__file
 
     @property
-    def fullfile(self) -> str:
+    def fullfile(self) -> Path | None:
         """Configuration first full file name."""
         if not self.__dir:
-            return ''
-        return os.path.join(self.__dir[0], self.__file)
+            return
+        return self.__dir[0] / self.__file
 
     @property
     def encoding(self) -> str:
@@ -92,7 +93,7 @@ class Conf:
         return f'{self.__subdir}/{self.__file}'
 
     @classmethod
-    def __checkDir(cls, dir: str):
+    def __check_dir(cls, dir: Path):
         """
         Ensures that a specified directory exists in the class's path configuration.
 
@@ -104,13 +105,13 @@ class Conf:
         Args:
             dir (str): The base directory path to check and update.
         """
-        dir = os.path.join(dir, cls.subdir)
-        dir = os.path.realpath(dir)
-        if os.path.isdir(dir) and dir not in cls.path[cls.subdir]:
-            cls.path[cls.subdir].append(dir)
+        d = dir / cls.subdir
+        if d not in cls.path[cls.subdir] and d.is_dir():
+            cls.path[cls.subdir].append(d)
+        # cls.path[cls.subdir].append(d)
 
     @classmethod
-    def __buildPath(cls):
+    def __build_path(cls):
         """
         Builds and updates the `path` attribute for the class by traversing directories
         and checking for the existence of a specific subdirectory.
@@ -119,12 +120,12 @@ class Conf:
         1. Checks if the `subdir` attribute is not already a key in the `path` dictionary.
         2. Initializes an empty list for the `subdir` key in the `path` dictionary.
         3. Iteratively traverses the directory tree upwards starting from the current file's
-           directory (`__file__`), calling the `__checkDir` method for each directory.
-        4. Additionally, calls the `__checkDir` method for the first entry in `sys.path`.
+           directory (`__file__`), calling the `__check_dir` method for each directory.
+        4. Additionally, calls the `__check_dir` method for the first entry in `sys.path`.
         5. Reverses the order of the paths collected for the `subdir` key in the `path` dictionary.
 
         Note:
-            - The `__checkDir` method is assumed to handle the logic for checking and
+            - The `__check_dir` method is assumed to handle the logic for checking and
               potentially modifying the `path` attribute for the given directory.
             - This method is intended for internal use and should not be called directly
               from outside the class.
@@ -134,12 +135,9 @@ class Conf:
         """
         if cls.subdir not in cls.path:
             cls.path[cls.subdir] = []
-            d, dOld = __file__, ''
-            while d and d != dOld:
-                dOld, d = d, os.path.dirname(d)
-                cls.__checkDir(d)
-            cls.__checkDir(sys.path[0])
-            cls.path[cls.subdir] = cls.path[cls.subdir][::-1]
+            cls.__check_dir(Path(sys.path[0]))
+            for i in Path(__file__).resolve().parents:
+                cls.__check_dir(i)
 
     def __cache(self) -> dict:
         """
@@ -184,38 +182,42 @@ class Conf:
                                of the directories.
             ValueError: If the configuration file has an unsupported file extension.
         """
-        out = {
-            'dir': [],
-            'conf': None,
-        }
-        for dir in self.path[self.subdir]:
-            fullfile = os.path.join(dir, self.__file)
-            if not os.path.isfile(fullfile):
+        directory = []
+        configuration = None
+
+        for d in self.path[self.subdir]:
+            file = d / self.__file
+            if not file.is_file():
                 continue
-            self.__log.info(f'Conf Load {fullfile}')
-            out['dir'].append(dir)
+            directory.append(d)
             conf = None
             if self.__file.endswith('.json'):
+                self.__log.info(f'Conf Load JSON file: {file}')
                 import json
-                with open(fullfile, "r", encoding=self.__encoding) as f:
-                    conf = json.load(f)
+                conf = json.loads(file.read_text(encoding=self.__encoding))
             elif self.__file.endswith('.ini'):
+                self.__log.info(f'Conf Load INI file: {file}')
                 import configparser
                 config = configparser.ConfigParser()
-                config.read(fullfile)
+                config.read(file)
                 conf = {
                     s: dict(config.items(s)) for s in config.sections()
                 }
             else:
+                self.__log.info(f'Unknown file: {file}')
                 continue
             if merge:
                 from .fn import merge_recursive
-                out['conf'] = merge_recursive(
-                    out['conf'],
+                configuration = merge_recursive(
+                    configuration,
                     conf
                 )
             else:
-                out['conf'] = conf
+                configuration = conf
                 break
-        self.__dir = out['dir']
-        return out
+        self.__dir = directory
+
+        return {
+            'dir': directory,
+            'conf': configuration,
+        }

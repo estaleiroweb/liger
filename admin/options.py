@@ -51,4 +51,9 @@ def web(parser: argparse.ArgumentParser):
 
 def monitor(parser: argparse.ArgumentParser):
     """Monitors DSN connections to automate reverse engineering."""
-    pass
+    parser.add_argument(
+        "-p",
+        "--path",
+        help="Path for the project (optional). Defaults to current directory.",
+        default=None,
+    )

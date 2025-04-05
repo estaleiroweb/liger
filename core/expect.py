@@ -81,7 +81,7 @@ class Main(ABC):
             - 'exec': Callback function to execute (optional)
     """
 
-    _idErrors = {
+    _id_errors = {
         0: 'OK',
         1: 'End of connection',
         2: 'Unknown error',
@@ -95,7 +95,7 @@ class Main(ABC):
         self.__more: list = []
         self.__first: bool = True
         self.__timeout: int = 10
-        self.__lastCmd: str = None
+        self.__last_cmd: str = None
 
         self._conn = None
         """Conection of collect"""
@@ -115,7 +115,7 @@ class Main(ABC):
         self.lf = '\n'
         """End of line used to send commands"""
 
-        self.leaveInteractive: str = ':END:'
+        self.leave_interactive: str = ':END:'
         """Command to leave the interactive mode"""
 
         self.sleep: float = 0
@@ -292,8 +292,8 @@ class Main(ABC):
         self.__log.info('Clear more')
 
     @property
-    def backSpc(self) -> str:
-        b = '\x08'*len(self.leaveInteractive)
+    def back_spc(self) -> str:
+        b = '\x08'*len(self.leave_interactive)
         return b+self.lf
 
     @abstractmethod
@@ -340,9 +340,9 @@ class Main(ABC):
         Returns:
             bool: True if successful, False otherwise.
         """
-        if command and type(command) == str and self.isConnected():
+        if command and type(command) == str and self.is_connected():
             self.__log.debug(command)
-            self.__lastCmd = command
+            self.__last_cmd = command
             self._send((command + self.lf).encode(self.charset))
             return True
         return False
@@ -361,8 +361,8 @@ class Main(ABC):
         if not idError:
             return True
         if not content:
-            if idError in self._idErrors:
-                content = f'Error[{idError}]: {self._idErrors[idError]}'
+            if idError in self._id_errors:
+                content = f'Error[{idError}]: {self._id_errors[idError]}'
             else:
                 content = f'Error[{idError}]: Unknown error'
         self.__log.error(content)
@@ -390,7 +390,7 @@ class Main(ABC):
             return True
         return False
 
-    def _checkMore(self, recv: str) -> bool:
+    def _check_more(self, recv: str) -> bool:
         """
         Check if the received content matches any of the defined patterns.
 
@@ -406,7 +406,7 @@ class Main(ABC):
                     return True
         return False
 
-    def _checkPrompt(self) -> bool:
+    def _check_prompt(self) -> bool:
         """
         Check if the received content matches the prompt pattern.
 
@@ -417,10 +417,10 @@ class Main(ABC):
         if not prompt:
             return True
         if re.search(prompt, self.buffer):
-            return self._stripPrompt()
+            return self._strip_prompt()
         return False
 
-    def _stripPrompt(self) -> bool:
+    def _strip_prompt(self) -> bool:
         """
         Remove the prompt pattern from the content.
 
@@ -456,7 +456,7 @@ class Main(ABC):
             if timeout == 0:
                 return True
             return (time.time() - start_time) < timeout
-        while self.isConnected() and checkTime():
+        while self.is_connected() and checkTime():
             try:
                 recv = self._recv().decode(self.charset)
                 if not recv:
@@ -468,19 +468,19 @@ class Main(ABC):
             except:
                 # self._error(2)
                 break
-            if self._checkPrompt():
+            if self._check_prompt():
                 break
-            if self._checkMore(self.buffer):
+            if self._check_more(self.buffer):
                 break
             if self.sleep:
                 time.sleep(self.sleep)
-        if self.__lastCmd is None:
+        if self.__last_cmd is None:
             return self.buffer
 
-        return re.sub(r'^'+re.escape(self.__lastCmd)+r'\s*',
+        return re.sub(r'^'+re.escape(self.__last_cmd)+r'\s*',
                       '', self.buffer)
 
-    def isConnected(self) -> bool:
+    def is_connected(self) -> bool:
         """Check if connection is activated"""
         return bool(self._conn)
 
@@ -524,7 +524,7 @@ class Main(ABC):
         else:
             print(content)
 
-    def _interactiveRecv(self, rlist: list = None) -> 'bool|list':
+    def _interactive_recv(self, rlist: list = None) -> 'bool|list':
         """
         Receive terminal output and handle interactive sessions.
 
@@ -562,11 +562,11 @@ class Main(ABC):
 
         The user will be control of session.
 
-        Type self.leaveInteractive value or exit of terminal to leave the interactive mode.
+        Type self.leave_interactive value or exit of terminal to leave the interactive mode.
 
         After leave interactive mode, the script came back.
         """
-        if not self.isConnected():
+        if not self.is_connected():
             return
         import os
         import sys
@@ -586,15 +586,15 @@ class Main(ABC):
             if self._get_session():
                 rlist.insert(0, self._get_session())
 
-            while self.isConnected():
-                r = self._interactiveRecv(rlist)
+            while self.is_connected():
+                r = self._interactive_recv(rlist)
                 if isinstance(r, list) and sys.stdin in r:
                     available = os.read(sys.stdin.fileno(), 65535)
                     if len(available) == 0:
                         break
                     input_buffer += available.decode(self.charset)
-                    if self.leaveInteractive in input_buffer:
-                        self._send(self.backSpc)
+                    if self.leave_interactive in input_buffer:
+                        self._send(self.back_spc)
                         break
                     self._send(available)
                 elif r == True:
@@ -685,13 +685,13 @@ class SSH(Main):
             self.conn = None
             self._error(4, e)
 
-    def isConnected(self) -> bool:
+    def is_connected(self) -> bool:
         if not self._conn or not self._session:
             return False
         return not self._session.closed
 
     def _set_timeout(self, value: int) -> bool:
-        if self.isConnected():
+        if self.is_connected():
             self._session.settimeout(self.timeout)
             return True
         return False
@@ -779,7 +779,7 @@ class Telnet(Main):
         """
         if not username:
             return True
-        if self.isConnected():
+        if self.is_connected():
             self._conn.read_until(b"login: ", self.timeout)
             self._conn.write(username.encode(self.charset) + b"\n")
             if password:
@@ -798,7 +798,7 @@ class Telnet(Main):
         Returns:
             bool: True if successful, False otherwise.
         """
-        if self.isConnected():
+        if self.is_connected():
             self._conn.timeout = value
             return True
         return False
@@ -815,7 +815,7 @@ class Telnet(Main):
         for pattern in more:
             if 'er' in pattern:
                 patterns.append(pattern['er'])
-        while self.isConnected():
+        while self.is_connected():
             try:
                 index, _, recv = self._conn.expect(patterns, self.timeout)
                 if recv:
@@ -824,7 +824,7 @@ class Telnet(Main):
                     self.buffer += recv
 
                 if index == 0:  # Prompt match
-                    self._stripPrompt()
+                    self._strip_prompt()
                 elif index < 0:  # Timeout
                     self.__log.warning("Connection timeout")  # TODO Check it
                     self.exit = 1  # TODO Check it
@@ -970,7 +970,7 @@ class Serial(Main):
             self._conn = None
             self._error(4, e)
 
-    def isConnected(self) -> bool:
+    def is_connected(self) -> bool:
         return True if self._conn and self._conn.is_open else False
 
     def _set_timeout(self, value: int) -> bool:
@@ -1015,7 +1015,7 @@ class Serial(Main):
     def _get_session(self):
         return self._conn
 
-    def _interactiveRecv(self, rlist: list = None) -> 'bool|list':
+    def _interactive_recv(self, rlist: list = None) -> 'bool|list':
         """
         Receive terminal output and handle interactive sessions.
 
@@ -1113,7 +1113,7 @@ class Spawn(Main):
             self._conn = None
             self._error(4, e)
 
-    def isConnected(self) -> bool:
+    def is_connected(self) -> bool:
         if not self._conn or self._process.poll() is not None:
             return False
         return True

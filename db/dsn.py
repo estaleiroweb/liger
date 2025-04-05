@@ -1,8 +1,5 @@
-from ..decorator.singleton import singleton
 from ..core import fn
 from ..core.conf import Conf
-
-# @singleton()
 
 
 class Dsn:
@@ -44,11 +41,11 @@ class Dsn:
             self.__cfg = self.check(value)
             return {}
         if not isinstance(dsn, str):
-            return self.__getDSN_dict(dsn)
+            return self.__get_dsn_dict(dsn)
         if '://' in dsn:
-            return self.__getDSN_uri(dsn)
+            return self.__get_dsn_uri(dsn)
         else:
-            return self.__getDSN_context(dsn)
+            return self.__get_dsn_context(dsn)
 
     def __repr__(self) -> str:
         return f'{self.keys}'
@@ -58,13 +55,13 @@ class Dsn:
         """All keys of DSN connections"""
         return self.__cfg.keys()
 
-    def listAll(self):
-        return {self.__getDSN_context(i) for i in self.keys}
+    def list_all(self):
+        return {self.__get_dsn_context(i) for i in self.keys}
 
     def save(self):
-        fn.saveJSON(self.__file, self.__cfg)
+        fn.save_json(self.__file, self.__cfg)
 
-    def __getDSN_uri(self, dsn: str):
+    def __get_dsn_uri(self, dsn: str):
         from urllib.parse import urlparse, parse_qs
         u = urlparse(dsn)
         arr = [
@@ -84,22 +81,22 @@ class Dsn:
             for i in query:
                 if i not in cfg and query[i]:
                     cfg[i] = query[i]
-        cfg['dsn'] = self.__makeDSN(cfg)
+        cfg['dsn'] = self.__make_dsn(cfg)
         return cfg
 
-    def __getDSN_context(self, dsn: str):
-        return self.check(self.__getConn(dsn))
+    def __get_dsn_context(self, dsn: str):
+        return self.check(self.__get_conn(dsn))
 
-    def __getDSN_dict(self, dsn: dict):
+    def __get_dsn_dict(self, dsn: dict):
         cfg = self.check(dsn)
         if 'dsn' not in cfg:
-            cfg['dsn'] = self.__makeDSN(cfg)
+            cfg['dsn'] = self.__make_dsn(cfg)
         return cfg
 
     @classmethod
     def check(cls, cfg: dict) -> dict:
         cfg = {k.lower(): v for k, v in cfg.items()}
-        cfg = fn.trDict(cfg, {
+        cfg = fn.tr_dict(cfg, {
             'type': 'scheme',
             'db': 'database',
             'username': 'user',
@@ -108,7 +105,7 @@ class Dsn:
         })
         return cfg
 
-    def __makeDSN(self, cfg: dict) -> str:
+    def __make_dsn(self, cfg: dict) -> str:
         c = cfg.copy()
         arr = ['scheme', 'username', 'port', 'hostname', 'path',]
         for i in arr:
@@ -121,11 +118,11 @@ class Dsn:
         strDsn += c['path'] if c['path'] else ''
         return strDsn
 
-    def __getConn(self, dsn: str, inherit: list = []) -> dict:
+    def __get_conn(self, dsn: str, inherit: list = []) -> dict:
         conn = self.__cfg[dsn] if dsn in self.__cfg else {}
         if 'dsn' not in conn:
             conn['dsn'] = dsn
         inherit.append(dsn)
         if 'inherit' in conn and dsn not in inherit:
-            return self.__getConn(conn['inherit'], inherit) | conn
+            return self.__get_conn(conn['inherit'], inherit) | conn
         return conn

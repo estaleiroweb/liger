@@ -40,14 +40,46 @@ LOG_DICT: dict = {
 
 
 class Logger:
+    """
+    Logger class for managing logging functionality with configurable verbosity levels.
+
+    Attributes:
+        level_verbose (int): Verbosity level for console output. Defaults to LOG_NONE.
+        level_file (int): Verbosity level for file output. Defaults to LOG_NONE.
+
+    Methods:
+        primary(message: str):
+            Outputs primary log information based on verbosity settings.
+
+        info(message: str):
+            Outputs informational log messages based on verbosity settings.
+
+        debug(message: str):
+            Outputs debug log messages based on verbosity settings.
+
+        warning(message: str):
+            Outputs warning log messages based on verbosity settings.
+
+        error(message: str) -> bool:
+            Outputs error messages and always returns False.
+    """
     __file = None
-    __level = {
-        'verbose': LOG_NONE,
-        'file': LOG_NONE
-    }
+    """Path to the log file. Defaults to None."""
+    
+    level_verbose:int= LOG_NONE
+    """Verbosity level for console output. Defaults to LOG_NONE."""
+    
+    level_file:int= LOG_NONE
+    """Verbosity level for file output. Defaults to LOG_NONE."""
 
     def __init__(self, name: str):
-        self.__getConfig()
+        """
+        Initializes the instance with the given name and loads the configuration.
+
+        Args:
+            name (str): The name to associate with the instance.
+        """
+        self.__get_config()
         self.__name: str = name
 
     def primary(self, message):
@@ -101,7 +133,7 @@ class Logger:
         self.__log(LOG_ERROR, message)
 
     @classmethod
-    def __getConfig(cls):
+    def __get_config(cls):
         """
         Get the log file path from the configuration file.
 
@@ -117,8 +149,8 @@ class Logger:
 
         level = cfg.get('level', {})
         if level:
-            cls.__level['verbose'] = level.get('verbose', LOG_NONE)
-            cls.__level['file'] = level.get('file', LOG_NONE)
+            cls.level_verbose = level.get('verbose', LOG_NONE)
+            cls.level_file = level.get('file', LOG_NONE)
 
         path, file = cfg.get('path'), cfg.get('file')
         if not path or not file:
@@ -132,11 +164,31 @@ class Logger:
         cls.__file = os.path.join(path, file)
 
     def __log(self, level: int, message):
-        """Internal method to format and print log messages."""
+        """
+        Logs a message with a specified logging level.
+
+        This method checks if the provided logging level is valid and whether
+        the message should be logged to the console, a file, or both, based on
+        the configured verbosity levels.
+
+        Args:
+            level (int): The logging level of the message. Must be a key in LOG_DICT.
+            message (str): The message to be logged.
+
+        Returns:
+            None: This method does not return a value.
+
+        Behavior:
+            - If the logging level is not in LOG_DICT, the method exits without logging.
+            - If the logging level does not match the configured verbosity for
+              either console or file logging, the method exits without logging.
+            - Logs the message to the console if the `level_verbose` bitmask matches the level.
+            - Logs the message to a file if the `level_file` bitmask matches the level.
+        """
         if level not in LOG_DICT:
             return
-        scr = self.__level['verbose'] & level
-        fld = self.__level['file'] & level
+        scr = self.level_verbose & level
+        fld = self.level_file & level
         if not scr and not fld:
             return
 
@@ -152,9 +204,9 @@ class Logger:
         if scr:
             print(content)
         if fld:
-            self.__logFile(content)
+            self.__log_file(content)
 
-    def __logFile(self, content):
+    def __log_file(self, content):
         """
         Append content to the log file.
 

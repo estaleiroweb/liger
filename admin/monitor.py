@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-import argparse
-from ..core import monitor as m
+import sys
+from pathlib import Path
+from ..core import fn
+from . import main
 
-class Main:
-    def __init__(self,args: argparse.Namespace = None):
-        m.start_monitor()
 
-if __name__ == "__main__":
-    print('This lib must be called by root of your project started by this framework by another script')
-    quit()
+class Main(main.Main):
+    def start(self):
+        if not self.args.get('path'):
+            self.args['path']=''
+        path=Path(self.args['path'])
+        sys.path[0]=f'{path.resolve()}'
+        
+        fn.monitor_files()

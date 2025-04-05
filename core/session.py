@@ -2,7 +2,7 @@ import os
 import time
 import pickle
 from typing import Any
-from ..decorator.singleton import singleton
+from ..decorator import singleton
 
 
 @singleton(True)

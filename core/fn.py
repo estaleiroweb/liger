@@ -2,12 +2,37 @@
 __SENSITIVE_PATTERNS: list = []
 
 
+def root():
+    """
+    Returns the root directory of the framework.
+
+    This function uses the `__file__` attribute to determine the file path of the
+    current script and navigates two levels up to return the parent directory.
+
+    Returns:
+        pathlib.Path: The root directory of the framework as a Path object.
+    """
+    from pathlib import Path
+    return Path(__file__).parent.parent
+
+
 def conf(file: str,
          encoding: str = "utf-8",
          merge: bool = False,
          nocache: bool = False
          ) -> dict:
-    """Short access to Conf class"""
+    """
+    Load and return configuration data from a specified file.
+
+    Args:
+        file (str): The path to the configuration file.
+        encoding (str, optional): The encoding used to read the file. Defaults to "utf-8".
+        merge (bool, optional): Whether to merge the configuration with existing data. Defaults to False.
+        nocache (bool, optional): If True, forces the configuration to be reloaded instead of using a cached version. Defaults to False.
+
+    Returns:
+        dict: The loaded configuration data as a dictionary. If the data is not a dictionary, an empty dictionary is returned.
+    """
     from .conf import Conf
     cfg = Conf(file, encoding, merge)
     out = cfg.load() if nocache else cfg()
@@ -15,6 +40,18 @@ def conf(file: str,
 
 
 def get_conf_fullfilename(file: str, path: str = None) -> 'str|bool':
+    """
+    Resolves the full path to a configuration file within a 'conf' directory.
+    Args:
+        file (str): The name of the configuration file to locate.
+        path (str, optional): The base directory to search for the 'conf' folder. 
+                              If not provided, the function will attempt to resolve 
+                              the path using the current working directory and the 
+                              first entry in `sys.path`.
+    Returns:
+        str|bool: The full path to the configuration file if found, or `False` if 
+                  the file does not exist or the provided path is invalid.
+    """
     import os
     if not path:
         import sys
@@ -22,10 +59,10 @@ def get_conf_fullfilename(file: str, path: str = None) -> 'str|bool':
     elif not os.path.isdir(path):
         return False
 
-    fullFile = os.path.join(path, 'conf', file)
-    if not os.path.isfile(fullFile):
+    full_file = os.path.join(path, 'conf', file)
+    if not os.path.isfile(full_file):
         return False
-    return fullFile
+    return full_file
 
 
 def dsn(conn: 'str|dict') -> dict:
@@ -106,7 +143,7 @@ def copy(source_dir: str = None,
                 shutil.copy2(item, dest_path)
 
 
-def trDict(d: dict, tr: dict) -> dict:
+def tr_dict(d: dict, tr: dict) -> dict:
     """Translate keys of a dictionary
 
     Args:
@@ -129,7 +166,7 @@ def trDict(d: dict, tr: dict) -> dict:
             'passwd': 'password',
             'pass': 'password',
         }
-        print(trDict(cfg, arr))
+        print(tr_dict(cfg, arr))
         # {'password': 'xpto', 'user': 'admin'}
         ```
     """
@@ -180,7 +217,37 @@ def simplify_lists(data):
 
 
 def merge_recursive(value1, value2):
-    """Merge two dict recursive"""
+    """
+    Recursively merges two values of the same type.
+
+    This function supports merging dictionaries, sets, lists, tuples, and other types.
+    If the types of the two values differ or the first value is None, the second value
+    is returned.
+
+    Args:
+        value1: The first value to merge. Can be a dictionary, set, list, tuple, or other type.
+        value2: The second value to merge. Must be of the same type as value1.
+
+    Returns:
+        The merged result:
+        - If both values are dictionaries, their keys are merged recursively.
+        - If both values are sets, their union is returned.
+        - If both values are lists or tuples, their concatenation is returned.
+        - For other types, value2 is returned if value1 and value2 differ.
+
+    Examples:
+        >>> merge_recursive({'a': 1}, {'b': 2})
+        {'a': 1, 'b': 2}
+
+        >>> merge_recursive({1, 2}, {3, 4})
+        {1, 2, 3, 4}
+
+        >>> merge_recursive([1, 2], [3, 4])
+        [1, 2, 3, 4]
+
+        >>> merge_recursive(None, 42)
+        42
+    """
     t1, t2 = type(value1), type(value2)
     if t1 != t2 or value1 == None:
         return value2
@@ -307,23 +374,63 @@ def anonymize(content):
     return process(content)
 
 
-def loadJSON(file: str, encoding='utf-8'):
-    """Load a json file from root_project/conf"""
+def load_json(file: str, encoding='utf-8'):
+    """
+    Loads a JSON file and returns its contents as a Python object from root_project/conf.
+
+    Args:
+        file (str): The path to the JSON file to be loaded.
+        encoding (str, optional): The encoding format to use when reading the file. Defaults to 'utf-8'.
+
+    Returns:
+        dict or list: The parsed JSON content, which can be a dictionary or a list depending on the file's structure.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        json.JSONDecodeError: If the file is not a valid JSON format.
+    """
     import json
     with open(file, "r", encoding=encoding) as f:
         return json.load(f)
     return {}
 
 
-def saveJSON(file: str, data: 'dict|list', indent=4):
-    """Save a json file to root_project/conf"""
+def save_json(file: str, data: 'dict|list', indent=4):
+    """
+    Saves data to a JSON file with the specified indentation to root_project/conf.
+
+    Args:
+        file (str): The path to the JSON file where the data will be saved.
+        data (dict | list): The data to be serialized and written to the JSON file.
+        indent (int, optional): The number of spaces to use for indentation in the JSON file. Defaults to 4.
+
+    Raises:
+        TypeError: If `data` is not serializable to JSON.
+        IOError: If there is an error writing to the file.
+
+    Example:
+        save_json("config.json", {"key": "value"}, indent=2)
+    """
     import json
     with open(file, "w") as f:
         json.dump(data, f, indent=indent)
 
 
-def rebootApp():
-    """Reboot the app"""
+def reboot_app():
+    """
+    Restart the current Python application.
+    This function restarts the currently running Python script by re-executing
+    the Python interpreter with the same command-line arguments. It uses the
+    `os.execl` method to replace the current process with a new one.
+    Note:
+        - Any unsaved data or state in the current process will be lost.
+        - Ensure that the script is designed to handle restarts gracefully.
+    Imports:
+        - os: Used for process management.
+        - sys: Used to retrieve the current Python executable and arguments.
+    Example:
+        reboot_app()  # Restarts the current Python script.
+    """
     import os
     import sys
     python = sys.executable
@@ -333,8 +440,30 @@ def rebootApp():
     # subprocess.run(["python3", "script_a_ser_executado.py"])
 
 
-def rebuildDsn(secretOld=None, path: str = None):
-    """Rebuild the DSN"""
+def rebuild_dsn(secretOld=None, path: str = None):
+    """
+    Rebuilds the DSN (Data Source Name) configuration file by re-encrypting 
+    sensitive data using a new or existing secret key.
+    Args:
+        secretOld (str, optional): The old secret key used for decryption. 
+            If not provided, the current secret key from the configuration 
+            will be used.
+        path (str, optional): The base path to locate configuration files. 
+            Defaults to None.
+    Returns:
+        None: The function modifies the DSN configuration file in place 
+        if changes are made.
+    Behavior:
+        - Loads the `settings.json` file to retrieve the current secret key.
+        - If `secretOld` is not provided, it defaults to the current secret key.
+        - Loads the DSN configuration file specified by `Dsn.config_file`.
+        - Iterates through the DSN entries:
+            - If the entry contains encrypted data (`crypt`), it re-encrypts 
+              the data using the new secret key.
+            - If the entry contains a plaintext password, it encrypts the 
+              password and replaces it with the encrypted value.
+        - Saves the updated DSN configuration file if any changes are made.
+    """
     from ..db.dsn import Dsn
     from . import crypt
 
@@ -342,7 +471,7 @@ def rebuildDsn(secretOld=None, path: str = None):
     if not file:
         return
 
-    cfg = loadJSON(file)
+    cfg = load_json(file)
     secret = cfg.get('secret')
     if not secret:
         return
@@ -352,7 +481,7 @@ def rebuildDsn(secretOld=None, path: str = None):
 
     file = get_conf_fullfilename(Dsn.config_file, path)
     changed = False
-    dsn = loadJSON(file)
+    dsn = load_json(file)
     c = crypt.Crypt(secret)
     cOld = crypt.Crypt(secretOld)
     for i in dsn:
@@ -369,4 +498,11 @@ def rebuildDsn(secretOld=None, path: str = None):
             dsn[i] = v
             changed = True
     if changed:
-        saveJSON(file, dsn)
+        save_json(file, dsn)
+
+def monitor_files():
+    from ..core import monitor
+    from ..core import log
+    
+    log.Logger.level_verbose=log.LOG_ALL
+    monitor.Handler.start()

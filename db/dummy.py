@@ -17,11 +17,11 @@ class Dummy(Main):
     def exec(self, sql: str | list | tuple, param: tuple | list | dict = ...) -> bool | list:
         return False
 
-    def execMany(self, tbl: str, data: list[dict], config: dict = ...):
+    def many(self, tbl: str, data: list[dict], config: dict = ...):
         pass
 
     def query(self, conn: Any, sql: str, params: 'Any' = None) -> 'Iterator[Any]':
         return iter([])
 
-    def _checkConfig(self, cfg: dict) -> dict:
+    def _check_config(self, cfg: dict) -> dict:
         return {}

@@ -40,7 +40,7 @@ class Main(ABC):
         """Stores the last error that occurred during database operations"""
         
         self.__dsn: dict = fn.anonymize(cfg)
-        self.__conn = self.connect(self._checkConfig(cfg))
+        self.__conn = self.connect(self._check_config(cfg))
 
         self.db = db
 
@@ -96,7 +96,7 @@ class Main(ABC):
             self.__db = db
 
     @abstractmethod
-    def _checkConfig(self, cfg: dict) -> dict:
+    def _check_config(self, cfg: dict) -> dict:
         """
         Validates the connection configuration.
 
@@ -174,7 +174,7 @@ class Main(ABC):
         pass
 
     @abstractmethod
-    def execMany(self, tbl: str, data: 'list[dict]', config: dict = {}):
+    def many(self, tbl: str, data: 'list[dict]', config: dict = {}):
         """
         Executes a batch operation (like INSERT) on multiple rows of data.
 
@@ -225,7 +225,7 @@ class Main(ABC):
         """
         pass
 
-    def fastLine(self, sql: str, param: 'tuple|list|dict' = []) -> dict:
+    def line(self, sql: str, param: 'tuple|list|dict' = []) -> dict:
         """
         Execute a SQL query and return the first row of the result.
 
@@ -246,7 +246,7 @@ class Main(ABC):
         except StopIteration:
             return {}
 
-    def fastValue(self, sql: str, param: 'tuple|list|dict' = []) -> Any:
+    def value(self, sql: str, param: 'tuple|list|dict' = []) -> Any:
         """
         Execute a SQL query and return the first value from the first row.
 
@@ -262,12 +262,12 @@ class Main(ABC):
 
         See Also: query
         """
-        first_line = self.fastLine(sql, param)
+        first_line = self.line(sql, param)
         if first_line:
             return next(iter(first_line.values()))
         return None
 
-    def queryAll(self, sql: str, param: 'tuple|list|dict' = []) -> 'list[dict]':
+    def all(self, sql: str, param: 'tuple|list|dict' = []) -> 'list[dict]':
         """
         Execute a SQL query and return all rows as a list of dictionaries.
 
@@ -300,7 +300,7 @@ class Main(ABC):
             conn.close()
             conn = None
 
-    def str21dict(self, csv_data: str, config: dict = {}) -> 'list[dict]':
+    def str_to_dict(self, csv_data: str, config: dict = {}) -> 'list[dict]':
         """
         Convert a CSV string to a list of dictionaries.
 
@@ -386,7 +386,7 @@ class Main(ABC):
         lines = [er.sub('', line) for line in lines]
         return '\n'.join(lines)
 
-    def joinParam(self, sql: str, param: 'tuple|list|dict' = []) -> str:
+    def join_param(self, sql: str, param: 'tuple|list|dict' = []) -> str:
         """
         Format and return a SQL query with parameters applied.
 
@@ -404,7 +404,7 @@ class Main(ABC):
             ```python
             sql = 'SELECT * FROM users WHERE name = %s AND age = %s'
             param = ('Alice', 30)
-            print(obj.joinParam(sql,param))
+            print(obj.join_param(sql,param))
             # Output:
             # SELECT * FROM users WHERE name = "Alice" AND age = 30
             ```
@@ -452,7 +452,7 @@ class Main(ABC):
         if self.verbose:
             print(content)
 
-    def showSQL(self, sql: str, param: 'tuple|list|dict' = []):
+    def show_sql(self, sql: str, param: 'tuple|list|dict' = []):
         """
         Display formatted SQL query with parameters if verbose mode is enabled.
 
@@ -466,8 +466,8 @@ class Main(ABC):
         if self.verbose:
             lenTitle = 80
             print('Start Query'.center(lenTitle, '-'))
-            print(self.joinParam(sql, param))
+            print(self.join_param(sql, param))
             print('End Query'.center(lenTitle, '-'))
             print()
-            # self.showSQL('\n   -- parameters')
-            # self.showSQL(param)
+            # self.show_sql('\n   -- parameters')
+            # self.show_sql(param)

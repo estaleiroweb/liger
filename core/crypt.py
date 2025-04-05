@@ -171,7 +171,7 @@ class Crypt:
             mode (modes.Mode, optional): Cipher mode to use. Default: CBC
         """
         self.__key: str = None
-        self.__keyCoded: bytes = None
+        self.__key_coded: bytes = None
         self.__algorithm: str = None
         self.__mode: str = None
 
@@ -195,30 +195,30 @@ class Crypt:
         return self.decrypt(content) if decrypt else self.encrypt(content)
 
     @property
-    def keyCoded(self) -> 'bytes|None':
+    def key_coded(self) -> 'bytes|None':
         """
         Get or set the encryption keyCode.
 
         Returns:
             str: The key value
         """
-        if self.__keyCoded:
-            return self.__keyCoded
+        if self.__key_coded:
+            return self.__key_coded
         if not self.__key:
             return None
         lens = self.CIPHER_SPECS[self.__algorithm]['len']['key']
         key = self.__key.encode(self.__econding)
         l = len(key)
         if l in lens:
-            self.__keyCoded = key
-            return self.__keyCoded
+            self.__key_coded = key
+            return self.__key_coded
         for i in lens:
             if l < i:
-                self.__keyCoded = self.__key.ljust(
+                self.__key_coded = self.__key.ljust(
                     i, '0')[:i].encode(self.__econding)
-                return self.__keyCoded
-        self.__keyCoded = self.__key[:lens[-1]].encode(self.__econding)
-        return self.__keyCoded
+                return self.__key_coded
+        self.__key_coded = self.__key[:lens[-1]].encode(self.__econding)
+        return self.__key_coded
 
     @property
     def econding(self) -> str:
@@ -233,7 +233,7 @@ class Crypt:
     @econding.setter
     def econding(self, val: str):
         self.__econding = val
-        self.__keyCoded = None
+        self.__key_coded = None
 
     @property
     def key(self) -> str:
@@ -253,7 +253,7 @@ class Crypt:
         if not val:
             return
         self.__key = val
-        self.__keyCoded = None
+        self.__key_coded = None
 
     @property
     def algorithm(self) -> str:
@@ -272,7 +272,7 @@ class Crypt:
                 return
             val = 'AES'
         self.__algorithm = val
-        self.__keyCoded = None
+        self.__key_coded = None
 
     @property
     def mode(self) -> str:
@@ -301,7 +301,7 @@ class Crypt:
             dict: Dictionary containing current key length, IV length, and allowed key lengths
         """
         l = self.CIPHER_SPECS[self.__algorithm]['len']
-        k=self.keyCoded
+        k=self.key_coded
         l['lenKey'] = len(k) if k else 0
         return l
 
@@ -339,7 +339,7 @@ class Crypt:
         if not self.key:
             return
 
-        algorithm = self.CIPHER_SPECS[self.__algorithm]['obj'](self.keyCoded)
+        algorithm = self.CIPHER_SPECS[self.__algorithm]['obj'](self.key_coded)
         modeObj = self.CIPHER_MODES[self.__mode]['obj']
         iv = b''
         argIV = []
@@ -374,7 +374,7 @@ class Crypt:
             return
 
         encrypted_bytes = base64.b64decode(encrypted_data)
-        algorithm = self.CIPHER_SPECS[self.__algorithm]['obj'](self.keyCoded)
+        algorithm = self.CIPHER_SPECS[self.__algorithm]['obj'](self.key_coded)
         modeObj = self.CIPHER_MODES[self.__mode]['obj']
         iv = b''
         argIV = []

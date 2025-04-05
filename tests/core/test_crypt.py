@@ -3,7 +3,6 @@ from unittest.mock import patch
 from ...core import crypt
 
 pytestmark = pytest.mark.core
-# pytestmark = [pytest.mark.core, pytest.mark.slow]
 
 config = {'charset': 'utf-8', 'secret': 'default-test-key',
           'algorithm': "AES", 'mode': "CBC"}
@@ -11,7 +10,6 @@ config['key']=config['secret']
 param_default = {'key': "test-key-12345", 'algorithm': "AES", 'mode': "CBC"}
 
 
-# @pytest.mark.core
 class TestCrypt:
     def setup_method(self):
         # Mock da função conf para evitar dependência de arquivo settings.json
@@ -84,27 +82,27 @@ class TestCrypt:
         self.c.key = "   "
         assert self.c.key == old_key
 
-    def test_keyCoded_property(self):
-        """Teste da propriedade keyCoded que ajusta o tamanho da chave"""
+    def test_key_coded_property(self):
+        """Teste da propriedade key_coded que ajusta o tamanho da chave"""
         # Para AES, as chaves válidas são 16, 24 ou 32 bytes
 
         self.c.algorithm=param_default["algorithm"]
 
         # Teste com chave menor que precisa ser preenchida
         self.c.key = "small"  # 5 bytes
-        assert len(self.c.keyCoded) == 16  # Deve ser ajustada para 16
+        assert len(self.c.key_coded) == 16  # Deve ser ajustada para 16
         
         # Teste com chave de tamanho exato (16 bytes)
         self.c.key = "exactsixteenbyte"  # 16 bytes
-        assert len(self.c.keyCoded) == 16
+        assert len(self.c.key_coded) == 16
         
         # Teste com chave de tamanho maior 16 (24 bytes)
         self.c.key = "exactsixteenbytes"  # 17 bytes
-        assert len(self.c.keyCoded) == 24
+        assert len(self.c.key_coded) == 24
 
         # Teste com chave maior que precisa ser truncada
         self.c.key = "a" * 40  # 40 bytes
-        assert len(self.c.keyCoded) == 32  # Deve ser truncada para 32
+        assert len(self.c.key_coded) == 32  # Deve ser truncada para 32
 
     def test_cipher_property(self):
         """Teste da propriedade cipher"""
