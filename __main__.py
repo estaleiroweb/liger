@@ -1,10 +1,24 @@
-import argparse
-import importlib
-from .admin import options
-
 
 def main():
     """Main function to handle command-line arguments."""
+    import sys
+    import argparse
+    import importlib
+    from .admin import options
+    from .core import fn
+    from pathlib import Path
+
+    fn.__BASE_DIR__ = Path.cwd()
+    called_script = Path(sys.argv[0]).resolve()
+
+    if called_script.name == "__main__.py":
+        # Ex: .../site-packages/nomedopacote/__main__.py → nome do pacote = nomedopacote
+        package_dir = called_script.parent
+        package_name = package_dir.name
+        fn.__BASE_ARGS__ = ["-m", package_name] + sys.argv[1:]
+    else:
+        fn.__BASE_ARGS__ = sys.argv[:]
+    
     parser = argparse.ArgumentParser(
         description="Application with init, web, monitor, and run options.")
     subparsers = parser.add_subparsers(

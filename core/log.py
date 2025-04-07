@@ -193,11 +193,11 @@ class Logger:
             return
 
         now = datetime.datetime.now()
-        timestamp = now.strftime("%Y-%m-%d %H:%M:%S.%f")
+        timestamp = now.strftime("%Y-%m-%dT%H:%M:%S.%f")
         # timestamp = timestamp[:-3]
 
         content = f"[{timestamp}] " +\
-            f"[{LOG_DICT.get(level)}] " +\
+            f"{LOG_DICT.get(level)}." +\
             f"{self.__name}: " +\
             f"{message}"
 

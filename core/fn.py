@@ -1,5 +1,7 @@
 
 __SENSITIVE_PATTERNS: list = []
+__BASE_DIR__ = None
+__BASE_ARGS__: list = []
 
 
 def root():
@@ -433,8 +435,27 @@ def reboot_app():
     """
     import os
     import sys
+    from . import log
+
+    # import pathlib
+    # base_dir = pathlib.Path(__file__).resolve().parent.parent
+    # os.chdir(str(base_dir))  # Garante que o CWD é o root do pacote
+    # base_dir = os.path.realpath(
+    #     os.path.join(
+    #         os.path.dirname(__file__),
+    #         '..'))
+    # os.chdir(base_dir)
+    # os.chdir(sys.path[0])
+
+    l = log.Logger('Rebuild')
+
     python = sys.executable
-    os.execl(python, python, *sys.argv)
+    if __BASE_DIR__:
+        l.warning(f'chdir: {__BASE_DIR__}')
+        os.chdir(__BASE_DIR__)
+    
+    l.warning(f'run: {python} {' '.join(__BASE_ARGS__)}')
+    os.execl(python, python, *__BASE_ARGS__)
 
     # import subprocess
     # subprocess.run(["python3", "script_a_ser_executado.py"])
@@ -500,9 +521,10 @@ def rebuild_dsn(secretOld=None, path: str = None):
     if changed:
         save_json(file, dsn)
 
+
 def monitor_files():
     from ..core import monitor
     from ..core import log
-    
-    log.Logger.level_verbose=log.LOG_ALL
+
+    log.Logger.level_verbose = log.LOG_ALL
     monitor.Handler.start()

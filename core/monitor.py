@@ -8,6 +8,9 @@ from typing import Callable
 from ..core import fn, log
 
 
+Logger: log.Logger = log.Logger('Monitor')
+"""A logging object for warning messages."""
+
 class Pattern:
     """
     The `Pattern` class provides a mechanism to define and manage regular expression patterns 
@@ -46,6 +49,7 @@ class Pattern:
         self.regex = re.compile(regex)
         self.fn = callback_function
         Pattern.__patterns[regex] = self
+        Logger.info(f'Add pattern monitor {regex}')
 
     @classmethod
     def match(cls, item: str) -> str | bytes | None:
@@ -131,9 +135,6 @@ class Handler(FileSystemEventHandler):
     __history: dict[str, str | bytes] = {}
     """A dictionary mapping paths to indices."""
 
-    __log: log.Logger = log.Logger('Monitor')
-    """A logging object for warning messages."""
-
     secretOld = fn.conf('settings.json', nocache=True).get('secret')
     """The secret value loaded from the `settings.json` configuration file that will repass to callback function"""
 
@@ -177,7 +178,7 @@ class Handler(FileSystemEventHandler):
             logInfo['dest'] = event.dest_path
             self.__add_item(event.dest_path)
 
-        self.__log.info(logInfo)
+        Logger.info(logInfo)
 
         # if event.is_directory:
         #     self.__log.info(f"Is directory")
@@ -221,7 +222,7 @@ class Handler(FileSystemEventHandler):
         if not idx:
             return
 
-        cls.__log.info("Add '{path}' to rebuild")
+        Logger.info("Add '{path}' to rebuild")
         cls.__doReboot = True
         cls.__history[path] = idx
 
@@ -254,13 +255,13 @@ class Handler(FileSystemEventHandler):
         # Para não executar mais reboots
         cls.__doReboot = None
 
-        cls.__log.warning("Rebuilding the server...")
+        Logger.warning("Rebuilding the server...")
         for path in cls.__history:
             try:
                 Pattern.get(cls.__history[path])(path, cls)
             except Exception as e:
                 print(e)
-        cls.__log.warning("Rebooting the server...")
+        Logger.warning("Rebooting the server...")
         fn.reboot_app()
         return True
 
@@ -284,9 +285,10 @@ class Handler(FileSystemEventHandler):
         root=f'{fn.root()}'
         if not paths:
             paths={sys.path[0], root}
+        
         Pattern(fr'^{re.escape(root)}\b')
         # paths.append(os.path.dirname(__file__))
-        cls.__log.info('Monitoring the project')
+        Logger.info('Monitoring the project')
 
         event_handler = cls()
         cls.__observer
