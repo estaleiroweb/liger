@@ -1,6 +1,7 @@
 import os
 import datetime
 from . import fn
+import inspect
 
 LOG_NONE: int = 0
 """Log nothing"""
@@ -65,11 +66,11 @@ class Logger:
     """
     __file = None
     """Path to the log file. Defaults to None."""
-    
-    level_verbose:int= LOG_NONE
+
+    level_verbose: int = LOG_NONE
     """Verbosity level for console output. Defaults to LOG_NONE."""
-    
-    level_file:int= LOG_NONE
+
+    level_file: int = LOG_NONE
     """Verbosity level for file output. Defaults to LOG_NONE."""
 
     def __init__(self, name: str):
@@ -81,6 +82,10 @@ class Logger:
         """
         self.__get_config()
         self.__name: str = name
+
+        ret: dict = fn.callback_trace(1)  # type: ignore
+        self.__log(LOG_INFO, f'Init Logger {ret['long']}', True)
+        # self.info(f'Init Logger {ret['short']}')
 
     def primary(self, message):
         """
@@ -163,7 +168,7 @@ class Logger:
 
         cls.__file = os.path.join(path, file)
 
-    def __log(self, level: int, message):
+    def __log(self, level: int, message, hide_line: bool = False):
         """
         Logs a message with a specified logging level.
 
@@ -174,6 +179,7 @@ class Logger:
         Args:
             level (int): The logging level of the message. Must be a key in LOG_DICT.
             message (str): The message to be logged.
+            hide_line (bool): Hide the number line if True
 
         Returns:
             None: This method does not return a value.
@@ -192,14 +198,29 @@ class Logger:
         if not scr and not fld:
             return
 
+        ln = ''
+        if not hide_line:
+            try:
+                for i in range(2, 1, -1):
+                    frame = inspect.stack()[i]
+                    # 0 = esta função, 1 = quem chamou
+                    break
+            except Exception:
+                ...
+            ln = f' [{frame.lineno}]'
+            # print(f"Função: {frame.function}")
+            # print(f"Arquivo: {frame.filename}")
+            # print(f"Linha: {frame.lineno}")
+
         now = datetime.datetime.now()
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%S.%f")
         # timestamp = timestamp[:-3]
 
         content = f"[{timestamp}] " +\
-            f"{LOG_DICT.get(level)}." +\
+            f"{LOG_DICT.get(level)}-" +\
             f"{self.__name}: " +\
-            f"{message}"
+            f"{message}" +\
+            ln
 
         if scr:
             print(content)

@@ -1,7 +1,7 @@
 
-__SENSITIVE_PATTERNS: list = []
 __BASE_DIR__ = None
 __BASE_ARGS__: list = []
+__SENSITIVE_PATTERNS__: list = []
 
 
 def root():
@@ -15,7 +15,7 @@ def root():
         pathlib.Path: The root directory of the framework as a Path object.
     """
     from pathlib import Path
-    return Path(__file__).parent.parent
+    return Path(__file__).resolve().parent.parent
 
 
 def conf(file: str,
@@ -288,7 +288,7 @@ def anonymize(content):
     Returns:
         Anonymized content maintaining the original structure
     """
-    global __SENSITIVE_PATTERNS
+    global __SENSITIVE_PATTERNS__
     import re
 
     defRepl = '********'
@@ -299,8 +299,8 @@ def anonymize(content):
         if match[3]:
             return '*****'+match[3]
         return defRepl
-    if not __SENSITIVE_PATTERNS:
-        __SENSITIVE_PATTERNS = [
+    if not __SENSITIVE_PATTERNS__:
+        __SENSITIVE_PATTERNS__ = [
             [None, r'^(.{0,3})(.*?)(.{0,3})$', defaultRepl],
             [r'pass(w(or)?d)?|senha|pwd', r'.*'],
             [r'cpf|cnpj|ssn|tax|id', r'^(\d{2}).(\d)*$', '\\1*****\\2'],
@@ -318,22 +318,22 @@ def anonymize(content):
             [r'certificate|certificado', r'.*'],
             [r'private|privado', r'.*'],
         ]
-        __SENSITIVE_PATTERNS = [
+        __SENSITIVE_PATTERNS__ = [
             [
                 re.compile(v[0]) if v[0] else None,
                 re.compile(v[1]),
                 v[2] if len(v) > 2 else defRepl
             ]
-            for v in __SENSITIVE_PATTERNS
+            for v in __SENSITIVE_PATTERNS__
         ]
 
         # Regex patterns for sensitive keys
 
     def is_sensitive(key):
         key_str = str(key)
-        for i in range(len(__SENSITIVE_PATTERNS)):
-            if __SENSITIVE_PATTERNS[i][0]:
-                regex = __SENSITIVE_PATTERNS[i][0]
+        for i in range(len(__SENSITIVE_PATTERNS__)):
+            if __SENSITIVE_PATTERNS__[i][0]:
+                regex = __SENSITIVE_PATTERNS__[i][0]
                 if regex.search(key_str):
                     return i
 
@@ -351,7 +351,7 @@ def anonymize(content):
                     elif isinstance(value, str):
                         if not idx:
                             idx = 0
-                        cfg = __SENSITIVE_PATTERNS[idx]
+                        cfg = __SENSITIVE_PATTERNS__[idx]
                         result[key] = re.sub(cfg[1], cfg[2], value, count=1)
                     elif isinstance(value, dict):
                         result[key] = process(value, True)
@@ -447,13 +447,13 @@ def reboot_app():
     # os.chdir(base_dir)
     # os.chdir(sys.path[0])
 
-    l = log.Logger('Rebuild')
+    l = log.Logger('fn.reboot_app')
 
     python = sys.executable
     if __BASE_DIR__:
         l.warning(f'chdir: {__BASE_DIR__}')
         os.chdir(__BASE_DIR__)
-    
+
     l.warning(f'run: {python} {' '.join(__BASE_ARGS__)}')
     os.execl(python, python, *__BASE_ARGS__)
 
@@ -522,9 +522,108 @@ def rebuild_dsn(secretOld=None, path: str = None):
         save_json(file, dsn)
 
 
+def callback_trace(idx=None) -> list[dict] | dict | None:
+    """
+    Analyzes the current call stack and provides detailed information about each frame.
+    Args:
+        idx (int, optional): The index of the specific stack frame to retrieve. If None, 
+            returns details for all stack frames. Defaults to None.
+    Returns:
+        list[dict] | dict | None: 
+            - If `idx` is None, returns a list of dictionaries, each containing details 
+              about a stack frame.
+            - If `idx` is provided and valid, returns a dictionary with details about 
+              the specified stack frame.
+            - If `idx` is out of range, returns None.
+    Each dictionary contains the following keys:
+        - 'idx': The index of the stack frame.
+        - 'file': The file path of the code being executed in the frame.
+        - 'line': The line number in the file where the frame is located.
+        - 'module': The name of the module containing the frame, if available.
+        - 'class': The name of the class (if any) associated with the frame.
+        - 'function': The name of the function (if any) associated with the frame.
+        - 'short': A short string representation of the frame, including index, module, 
+          class, function, and line number.
+        - 'long': A detailed string representation of the frame, including index, file 
+          path, module, class, function, and line number.
+    Notes:
+        - The function uses the `inspect` module to analyze the call stack.
+        - If the frame corresponds to a method of a class, the class name is included.
+        - If the frame corresponds to a module, the module name is included.
+        - The `short` and `long` representations are formatted strings for quick reference.
+    """
+    import inspect
+    stack = inspect.stack()[1:]
+
+    def build(idx, frame: inspect.FrameInfo) -> dict:
+        file = f'{frame.filename}'
+        m, cl, fn, file_sep = '', '', '', ''
+        module, cls, func = None, None, None
+
+        if frame.function != '<module>':
+            func = frame.function
+            fn = f'{func}()'
+            file_sep = ':'
+
+            init_locals = frame.frame.f_locals
+            if 'self' in init_locals:
+                instance = init_locals['self']
+                cls = instance.__class__.__name__
+                cl = f'{cls}.'
+
+        obj = inspect.getmodule(frame.frame)
+        if obj and obj.__name__ != '__main__':
+            file_sep = ':'
+            module = obj.__name__
+            m = module
+            if fn or cl:
+                m += '@'
+
+        s = f'{m}{cl}{fn}' or f'{file}'
+        ln = f' [{frame.lineno}]'
+        return {
+            'idx': idx,
+            'file': frame.filename,
+            'line': frame.lineno,
+            'module': module,
+            'class': cls,
+            'function': func,
+            'short': f'#{idx}-{s}{ln}',
+            'long': f'#{idx}-{file}{file_sep}{m}{cl}{fn}{ln}',
+        }
+
+    if idx == None:
+        return [build(idx, frame) for idx, frame in enumerate(stack)]
+    if len(stack) > idx+1:
+        return build(idx, stack[idx])
+    for idx, frame in enumerate(stack):
+        d = build(idx, frame)
+        print(d['short'])
+
+
 def monitor_files():
+    """
+    Initializes and starts the file monitoring process.
+    This function sets the logging level to verbose, enabling all log messages,
+    and starts the monitoring handler to track file changes or events.
+    Imports:
+        - `monitor` from the `core` module: Handles file monitoring operations.
+        - `log` from the `core` module: Manages logging functionality.
+    Side Effects:
+        - Sets the logging level to `LOG_ALL` for detailed logging.
+        - Starts the monitoring handler.
+    Usage:
+        Call this function to begin monitoring files with verbose logging enabled.
+    """
     from ..core import monitor
     from ..core import log
 
     log.Logger.level_verbose = log.LOG_ALL
+    
+    monitor.Pattern(r'\.py')
+    monitor.Pattern(r'\.conf')
+    
     monitor.Handler.start()
+
+def monitor_dsn():
+    ...

@@ -192,11 +192,9 @@ class Conf:
             directory.append(d)
             conf = None
             if self.__file.endswith('.json'):
-                self.__log.info(f'Conf Load JSON file: {file}')
                 import json
                 conf = json.loads(file.read_text(encoding=self.__encoding))
             elif self.__file.endswith('.ini'):
-                self.__log.info(f'Conf Load INI file: {file}')
                 import configparser
                 config = configparser.ConfigParser()
                 config.read(file)
@@ -206,6 +204,7 @@ class Conf:
             else:
                 self.__log.info(f'Unknown file: {file}')
                 continue
+            self.__log.info(f'Conf Loaded: "{file}"')
             if merge:
                 from .fn import merge_recursive
                 configuration = merge_recursive(

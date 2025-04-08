@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import signal
 import re
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -10,6 +11,16 @@ from ..core import fn, log
 
 Logger: log.Logger = log.Logger('Monitor')
 """A logging object for warning messages."""
+
+
+def signal_handler(sig, frame):
+    """Handles the SIGINT signal (Ctrl+C)."""
+    print('\nCtrl+C pressed. Exiting gracefully...')
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
+
 
 class Pattern:
     """
@@ -52,7 +63,7 @@ class Pattern:
         Logger.info(f'Add pattern monitor {regex}')
 
     @classmethod
-    def match(cls, item: str) -> str | bytes | None:
+    def match(cls, item: str) -> list[int]:
         """
         Matches the given item against a list of predefined patterns and returns the index of the first match.
 
@@ -62,11 +73,15 @@ class Pattern:
         Returns:
             int: The index of the first matching pattern if a match is found, otherwise None.
         """
+        out = []
         if cls.__patterns:
             for i in cls.__patterns:
                 pattern = cls.__patterns[i]
-                if pattern.regex.match(item):
-                    return i
+                if isinstance(pattern, Pattern):
+                    regex: re.Pattern = pattern.regex
+                    if regex and regex.search(item):
+                        out.append(i)
+        return out
 
     @classmethod
     def get(cls, idx: str | bytes) -> Callable:
@@ -140,7 +155,11 @@ class Handler(FileSystemEventHandler):
 
     max_time: int = 2
     """The maximum allowable time since the last modification to trigger a reboot."""
-    
+
+    er_ignore: re.Pattern = re.compile(r'([\\/])\.git(\1|ignore)')
+    # er_ignore:re.Pattern = re.compile(r'([\\/])\.git')
+    # er_ignore:re.Pattern = re.compile(r'(\[\\/])(.git\1|.gitignore)')
+
     __observer = Observer()
 
     def dispatch(self, event):
@@ -167,36 +186,39 @@ class Handler(FileSystemEventHandler):
                 The method currently does not handle directory-specific events or invoke 
                 parent class methods for further processing.
         """
+        Handler.__last_modified = time.time()
+        if Handler.er_ignore.search(str(event.src_path)):
+            return
         Handler.__cont += 1
 
-        logInfo = {
-            'idx': Handler.__cont,
-            'src': event.src_path,
-        }
-        self.__add_item(event.src_path)
+        logInfo = f'Event_#{Handler.__cont} '
+        logInfo += f'src:"{event.src_path}"'
+        lst = [event.src_path]
         if event.dest_path and event.dest_path != event.src_path:
-            logInfo['dest'] = event.dest_path
-            self.__add_item(event.dest_path)
+            logInfo += f' dst:"{event.dest_path}"'
+            lst.append(event.dest_path)
 
         Logger.info(logInfo)
+        for i in lst:
+            self.__add_item(i)
 
         # if event.is_directory:
-        #     self.__log.info(f"Is directory")
+        #     Logger.info(f"Is directory")
         #     return
 
         # call on_{created,modified,deleted,moved}
         # super().dispatch(event)
     # def on_created(self, event):
-        # self.__log.info(f"Create({Handler.__cont}): {event.src_path}")
+        # Logger.info(f"Create({Handler.__cont}): {event.src_path}")
         # pass
     # def on_modified(self, event):
-        # self.__log.info(f"Modify({Handler.__cont}): {event.src_path}")
+        # Logger.info(f"Modify({Handler.__cont}): {event.src_path}")
         # pass
     # def on_deleted(self, event):
-        # self.__log.info(f"Remove({Handler.__cont}): {event.src_path}")
+        # Logger.info(f"Remove({Handler.__cont}): {event.src_path}")
         # pass
     # def on_moved(self, event):
-        # self.__log.info(f"Move({Handler.__cont}): {event.src_path} -> {event.dest_path}")
+        # Logger.info(f"Move({Handler.__cont}): {event.src_path} -> {event.dest_path}")
         # pass
 
     @classmethod
@@ -213,18 +235,16 @@ class Handler(FileSystemEventHandler):
                 - Matches the path against a pattern to determine its index.
                 - Logs the addition of the path and marks the system for reboot if conditions are met.
         """
-        cls.__last_modified = time.time()
-
         if cls.__doReboot == None or not path or path in cls.__history:
             return
 
-        idx = Pattern.match(path)
-        if not idx:
+        idx_list = Pattern.match(path)
+        if not idx_list:
             return
 
-        Logger.info("Add '{path}' to rebuild")
+        Logger.info(f'Add_#{Handler.__cont} "{path}" to rebuild')
         cls.__doReboot = True
-        cls.__history[path] = idx
+        cls.__history[path] = idx_list
 
     @classmethod
     def check_reboot(cls) -> bool:
@@ -256,14 +276,27 @@ class Handler(FileSystemEventHandler):
         cls.__doReboot = None
 
         Logger.warning("Rebuilding the server...")
+        hst: dict[int, list[str]] = {}
         for path in cls.__history:
+            for idx in cls.__history[path]:
+                if idx not in hst:
+                    hst[idx] = []
+                hst[idx].append(path)
+        for idx in hst:
             try:
-                Pattern.get(cls.__history[path])(path, cls)
+                Pattern.get(idx)(hst[idx], cls)
             except Exception as e:
                 print(e)
         Logger.warning("Rebooting the server...")
         fn.reboot_app()
         return True
+
+    @classmethod
+    def default_paths(cls):
+        import sys
+        root = f'{fn.root()}'
+        Pattern(fr'^{re.escape(root)}\b')
+        return {sys.path[0], root}
 
     @classmethod
     def start(cls,
@@ -282,30 +315,26 @@ class Handler(FileSystemEventHandler):
             Raises:
                 KeyboardInterrupt: If the monitoring is interrupted manually.
         """
-        root=f'{fn.root()}'
         if not paths:
-            paths={sys.path[0], root}
-        
-        Pattern(fr'^{re.escape(root)}\b')
-        # paths.append(os.path.dirname(__file__))
-        Logger.info('Monitoring the project')
+            paths = cls.default_paths()
 
+        Logger.info('Monitoring the project')
         event_handler = cls()
         cls.__observer
         # observer = Observer()
         for path in paths:
             if os.path.exists(path):
-                cls.__observer.schedule(event_handler, path, recursive=recursive)
+                cls.__observer.schedule(
+                    event_handler, path, recursive=recursive)
         cls.__observer.start()
-
         try:
             while True:
                 time.sleep(1)
                 if cls.check_reboot():
                     break
         except KeyboardInterrupt:
-            cls.__log.info('End monitor')
-        finally:
-            cls.__observer.stop()
-            cls.__observer.join()
-            quit()
+            Logger.info('End monitor')
+        cls.__observer.stop()
+        cls.__observer.join()
+        Logger.info('End script')
+        quit()

@@ -1,12 +1,12 @@
+import sys
+import argparse
+import importlib
+from .admin import options
+from .core import fn
+from pathlib import Path
 
 def main():
     """Main function to handle command-line arguments."""
-    import sys
-    import argparse
-    import importlib
-    from .admin import options
-    from .core import fn
-    from pathlib import Path
 
     fn.__BASE_DIR__ = Path.cwd()
     called_script = Path(sys.argv[0]).resolve()
@@ -36,13 +36,17 @@ def main():
             init_module = importlib.import_module(
                 f".admin.{args.command}", package=__package__)
             init_module.Main(args)  # Pass the parsed arguments to the module
+        except KeyboardInterrupt:
+            print('CTRL+C')
         except ImportError as e:
             print(f"ERROR: 'admin/{args.command}.py' module not load.")
             print(e)
-            quit()
+        quit()
     else:
         parser.print_help()  # Display help if no command is provided
 
 
 if __name__ == "__main__":
     main()
+else:
+    quit()
