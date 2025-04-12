@@ -447,7 +447,7 @@ def reboot_app():
     # os.chdir(base_dir)
     # os.chdir(sys.path[0])
 
-    l = log.Logger('fn.reboot_app')
+    l = log.Logger()
 
     python = sys.executable
     if __BASE_DIR__:
@@ -487,20 +487,25 @@ def rebuild_dsn(secretOld=None, path: str = None):
     """
     from ..db.dsn import Dsn
     from . import crypt
+    from . import log
+    logger = log.Logger()
 
     file = get_conf_fullfilename('settings.json', path)
+    logger.info(f'Check file "{file}"')
     if not file:
         return
 
     cfg = load_json(file)
     secret = cfg.get('secret')
     if not secret:
+        logger.warning(f'No secrect work')
         return
 
     if not secretOld:
         secretOld = secret
 
     file = get_conf_fullfilename(Dsn.config_file, path)
+    logger.info(f'Check file "{file}"')
     changed = False
     dsn = load_json(file)
     c = crypt.Crypt(secret)
@@ -510,10 +515,12 @@ def rebuild_dsn(secretOld=None, path: str = None):
         if 'crypt' in v:
             if secret == secretOld:
                 continue
+            logger.info(f'Change DSN {i}: old crypt')
             v['crypt'] = c(cOld(v['crypt'], True))
             dsn[i] = v
             changed = True
         elif 'password' in v:
+            logger.info(f'Change DSN {i}: password to crypt')
             v['crypt'] = c(v['password'])
             del (v['password'])
             dsn[i] = v
@@ -588,8 +595,8 @@ def callback_trace(idx=None) -> list[dict] | dict | None:
             'module': module,
             'class': cls,
             'function': func,
-            'short': f'#{idx}-{s}{ln}',
-            'long': f'#{idx}-{file}{file_sep}{m}{cl}{fn}{ln}',
+            'short': f'#{idx}-{s}',
+            'long': f'#{idx}-{file}{file_sep}{m}{cl}{fn}',
         }
 
     if idx == None:
@@ -615,15 +622,23 @@ def monitor_files():
     Usage:
         Call this function to begin monitoring files with verbose logging enabled.
     """
+    from pathlib import Path
     from ..core import monitor
     from ..core import log
 
     log.Logger.level_verbose = log.LOG_ALL
-    
+
     monitor.Pattern(r'\.py')
-    monitor.Pattern(r'\.conf')
-    
+    monitor.Pattern(r'([\\/])conf\1\w+\.(json|ini)')
+    monitor.Pattern(
+        r'([\\/])conf\1dsn\.json',
+        lambda path_list, cls: rebuild_dsn(
+            cls.secretOld,
+            Path(path_list[0]).resolve().parent.parent
+        ))
+
     monitor.Handler.start()
 
+
 def monitor_dsn():
-    ...
+    dsn_disct = conf('dsn.json')

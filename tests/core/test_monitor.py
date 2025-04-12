@@ -108,25 +108,19 @@ class TestPattern:
 class TestHandler:
     files: set = set()
 
+    def callback_function(self, path, cls):
+        TestHandler.files |= set(path)
+
     def test_file_change_detection(self):
         """Test that file changes are detected and handled correctly"""
-        # Define a test callback that tracks calls
-        callback_calls = []
-
-        def test_callback(path, cls):
-            callback_calls.append(path)
-
-        # Register patterns
+        TestHandler.files = set()
         monitor.Pattern(r'.*\.conf$')
-        monitor.Pattern(r'.*\.py$', test_callback)
+        monitor.Pattern(r'.*\.py$', self.callback_function)
 
-        # Create a handler instance
         handler = monitor.Handler()
 
-        # Simulate file changes
         handler.dispatch(MockEvent("config.conf"))
         handler.dispatch(MockEvent("script.py"))
-        # Should not match any pattern
         handler.dispatch(MockEvent("document.txt"))
 
         assert "config.conf" in monitor.Handler._Handler__history
@@ -138,17 +132,12 @@ class TestHandler:
     def test_reboot_no_triggering(self):
         """Test that reboot is triggered after file changes"""
 
-        # Mock reboot_app function
         with patch('watchdog.observers.Observer'), \
                 patch.object(monitor.fn, 'reboot_app') as mock_reboot:
 
-            # Register patterns
-            callback_calls = []
+            TestHandler.files = set()
 
-            def test_callback(path, cls):
-                callback_calls.append(path)
-
-            monitor.Pattern(r'.*\.py$', test_callback)
+            monitor.Pattern(r'.*\.py$', self.callback_function)
             handler = monitor.Handler()
 
             handler.dispatch(MockEvent("xpto/.git/abcd"))
@@ -163,22 +152,12 @@ class TestHandler:
 
     def test_reboot_triggering(self):
         """Test that reboot is triggered after file changes"""
-        # Set up time sequence
-        # Initial, add_item, check_reboot
-        # mock_time.side_effect = [1000, 1000, 1003]
-
-        # Mock reboot_app function
         with patch('watchdog.observers.Observer'), \
                 patch.object(monitor.fn, 'reboot_app') as mock_reboot:
 
-            # Register patterns
             TestHandler.files = set()
 
-            def test_callback(path, cls):
-                TestHandler.files = TestHandler.files.union(
-                    set(path))
-
-            monitor.Pattern(r'.*\.py$', test_callback)
+            monitor.Pattern(r'.*\.py$', self.callback_function)
             handler = monitor.Handler()
 
             handler.dispatch(MockEvent("script.py"))
@@ -203,19 +182,15 @@ class TestHandler:
                 patch('builtins.quit'), \
                 patch('sys.exit'):  # Patch quit() and exit() to prevent SystemExit
 
-            # Create mock observer
             mock_observer = MagicMock()
             mock_observer_class.return_value = mock_observer
 
-            # Replace the class observer with our mock
             original_observer = monitor.Handler._Handler__observer
             monitor.Handler._Handler__observer = mock_observer
 
             try:
-                # Start monitoring
                 monitor.Handler.start()
 
-                # Verify observer was set up correctly
                 assert mock_observer.start.called
                 assert mock_observer.schedule.called
                 assert mock_sleep.called
@@ -233,53 +208,38 @@ class TestHandler:
                 patch('builtins.quit'), \
                 patch('sys.exit'):  # Patch built-in quit function and exit
 
-            # Create mock observer
             mock_observer = MagicMock()
             mock_observer_class.return_value = mock_observer
-            # Replace the class observer with our mock
             original_observer = monitor.Handler._Handler__observer
             monitor.Handler._Handler__observer = mock_observer
 
             try:
-                # Start monitoring (should exit due to KeyboardInterrupt)
                 monitor.Handler.start()
 
-                # Verify observer was stopped properly
                 mock_log_info.assert_any_call('End monitor')
                 assert mock_observer.stop.called
                 assert mock_observer.join.called
             finally:
-                # Restore original observer to avoid affecting other tests
                 monitor.Handler._Handler__observer = original_observer
 
     def test_combined_workflow(self):
         """Test the complete workflow from pattern registration to file change handling"""
-        # Set up time sequence
         with patch('time.time', side_effect=[1000, 1000, 1003]), \
                 patch.object(monitor.fn, 'reboot_app') as mock_reboot:
 
             TestHandler.files = set()
 
-            def callback_function(path, cls):
-                TestHandler.files = TestHandler.files.union(
-                    set(path))
-
-            # Register patterns
             monitor.Pattern(r'.*\.conf$')
-            monitor.Pattern(r'.*\.py$', callback_function)
+            monitor.Pattern(r'.*\.py$', self.callback_function)
 
-            # Create handler
             handler = monitor.Handler()
 
-            # Simulate file changes
             handler.dispatch(MockEvent("config.conf"))
             handler.dispatch(MockEvent("script.py"))
 
-            # Check reboot
             result = monitor.Handler.check_reboot()
 
-            # Verify results
             assert result is True
             assert "script.py" in TestHandler.files
-            assert len(TestHandler.files) == 1  # Only .py files trigger callback
+            assert len(TestHandler.files) == 1
             mock_reboot.assert_called_once()

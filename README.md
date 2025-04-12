@@ -1,15 +1,18 @@
-# LIGRE - **L**ightweight **I**ntegration & **G**rid-based **R**eversal **E**ngine
+# LIGER
 
-- **Lightweight** → Rápido e eficiente
-- **Integration** → Conexão com vários bancos de dados
-- **Grid-based** → Exibe dados em grids, CRUDS e gráficos
-- **Reversal** → Engenharia reversa de banco de dados
-- **Engine** → Um motor poderoso para análise
+- [[L]] **Lightweight** → Fast and efficient
+- [[I]] **Integration** → Connect to many/multiple databases
+- [[G]] **Grid-based** → Display data in grids, CRUDs and charts
+- [[E]] **ETL-tools** → A powerful engine for ETL and data analysis
+- [[R]] **Reversal-engine** → Database reverse engineering
 
-![LIGRE](img/ligre.webp)
 
-Framework que será em escrito para 2 linguagens, Python e PHP
+| -------------------------------- | --------------------------------- |
+| ![LIGER](inc/img/liger.jpg)     | ![LIGER](inc/img/liger_blue.svg)  |
+| ![LIGER](inc/img/liger_grad.svg) | ![LIGER](inc/img/liger_color.svg) |
+| ![LIGER](inc/img/liger_gray.svg) | ![LIGER](inc/img/liger_pb.svg)    |
 
-Faz engenharia reversa de vários tipos bancos de dados e facilmente mostra grid, crud, gráficos, relatórios etc
+Framework that will be written for 2 languages, Python and PHP
+Reverse engineers various types of databases and easily displays grids, CRUD, graphs, reports, etc.
 
-Com autenticação, webserver, logs, ferramentas de ETL e muito mais.
+With authentication, webserver, logs, ETL tools and much more.

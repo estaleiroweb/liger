@@ -9,7 +9,7 @@ from typing import Callable
 from ..core import fn, log
 
 
-Logger: log.Logger = log.Logger('Monitor')
+Logger: log.Logger = log.Logger()
 """A logging object for warning messages."""
 
 
@@ -43,7 +43,7 @@ class Pattern:
     __patterns: dict = {}
     """A class-level list that stores all instances of the `Pattern` class."""
 
-    def __init__(self, regex: str | bytes, callback_function: Callable = lambda path, cls: None):
+    def __init__(self, regex: str | bytes, callback_function: Callable = lambda path_list, cls: None):
         """
         Initializes a new instance of the class with a compiled regular expression
         and an optional callback function.
@@ -95,7 +95,7 @@ class Pattern:
             Pattern: The pattern at the specified index in the class-level patterns list.
         """
         obj = cls.__patterns.get(idx)
-        return obj.fn if isinstance(obj, Pattern) else lambda path, cls: None
+        return obj.fn if isinstance(obj, Pattern) else lambda path_list, cls: None
 
 
 class Handler(FileSystemEventHandler):

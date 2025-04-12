@@ -121,7 +121,7 @@ class Main(ABC):
         self.sleep: float = 0
         """Time to sleep after send a command"""
 
-        self.__log = log.Logger('Expect')
+        self.__log = log.Logger()
 
     def __del__(self):
         """

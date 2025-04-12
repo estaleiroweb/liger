@@ -38,7 +38,7 @@ class Conf:
         self.__file: str = file
         self.__encoding: str = encoding
         self.__merge: bool = False
-        self.__log = log.Logger(self.__class__.__name__)
+        self.__log = log.Logger()
 
     def __str__(self) -> str:
         """Returns the configuration file name."""

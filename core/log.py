@@ -73,7 +73,7 @@ class Logger:
     level_file: int = LOG_NONE
     """Verbosity level for file output. Defaults to LOG_NONE."""
 
-    def __init__(self, name: str):
+    def __init__(self):
         """
         Initializes the instance with the given name and loads the configuration.
 
@@ -81,10 +81,11 @@ class Logger:
             name (str): The name to associate with the instance.
         """
         self.__get_config()
-        self.__name: str = name
-
         ret: dict = fn.callback_trace(1)  # type: ignore
-        self.__log(LOG_INFO, f'Init Logger {ret['long']}', True)
+        # self.__name: str = name
+        self.__name: str = ret['short']
+
+        self.__log(LOG_INFO, f'Init Logger {ret['long']} {ret['line']}', True)
         # self.info(f'Init Logger {ret['short']}')
 
     def primary(self, message):
