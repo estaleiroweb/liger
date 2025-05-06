@@ -1,6 +1,9 @@
+from .conn import Conn
+from .db import Db
 from .tables import Table
 from .fields import Fields
-from .indexes import Indexes
+from .keys import Keys
+from .data import Data
 # from .constraints import Constraints
 # from .foreignKey import ForeignKey
 # from .partitions import Partitions

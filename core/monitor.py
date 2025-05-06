@@ -6,7 +6,7 @@ import re
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 from typing import Callable
-from ..core import fn, log
+from . import fn, log
 
 
 Logger: log.Logger = log.Logger()

@@ -1,34 +1,33 @@
-from . import fields, keys, constraints, foreignKey, partitions, sql, data
+from . import db as database, fields, keys, constraints, foreignKey, partitions, sql, data
 
 class Table():
-    conn: 'str|None' = None
+    conn: str|None = None
     """Connection of the database."""
 
-    engine: 'str|None' = None
-    """Engine of the table."""
+    engine = None
 
-    name: 'str|None' = None
+    name: str|None = None
     """Name of the table."""
 
-    label: 'str|None' = None
+    label: str|None = None
     """Label of the table. If None, use the name."""
 
-    db: 'str|None' = None
+    db: database.Db|None = None
     """Database schema of the table."""
 
-    collate: 'str|None' = None
+    collate: str = ''
     """Collate of the table."""
 
-    row_format: 'str|None' = None
+    row_format: str|None = None
     """Row format of the table"""
 
-    checksum: 'bool' = False
+    checksum: bool = False
     """Indicates whether the table has a checksum. Defaults to False."""
 
-    avg_row_length: 'int|None' = None
+    avg_row_length: int|None = None
     """Average row length of the table."""
 
-    max_rows: 'int|None' = None
+    max_rows: int|None = None
     """Maximum number of rows in the table."""
 
     def __init__(self) -> None:
